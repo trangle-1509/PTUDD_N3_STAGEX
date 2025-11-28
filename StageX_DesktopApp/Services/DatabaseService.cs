@@ -148,6 +148,24 @@ namespace StageX_DesktopApp.Services
                 await context.SaveChangesAsync();
             }
         }
+        public async Task<bool> HasPerformancesAsync(int showId)
+        {
+            using (var context = new AppDbContext())
+            {
+                // Kiểm tra trong bảng Performances xem có record nào chứa ShowId này không
+                return await context.Performances.AnyAsync(p => p.ShowId == showId);
+            }
+        }
+
+        // [THÊM MỚI] Xóa vở diễn
+        public async Task DeleteShowAsync(int showId)
+        {
+            using (var context = new AppDbContext())
+            {
+                // Gọi Stored Procedure xóa vở diễn (đã có trong file SQL: proc_delete_show)
+                await context.Database.ExecuteSqlInterpolatedAsync($"CALL proc_delete_show({showId})");
+            }
+        }
 
         // --- [SHOW] QUẢN LÝ VỞ DIỄN ---
         public async Task<List<Genre>> GetGenresAsync()
@@ -276,7 +294,21 @@ namespace StageX_DesktopApp.Services
                 if (date.HasValue)
                     query = query.Where(p => p.PerformanceDate.Date == date.Value.Date);
 
-                return await query.ToListAsync();
+                var list = await query.ToListAsync();
+
+                // [THÊM MỚI]: Kiểm tra Booking cho từng suất diễn
+                // (Cách tối ưu hơn là dùng GroupJoin hoặc Select, nhưng cách này an toàn và dễ hiểu với cấu trúc hiện tại)
+                foreach (var p in list)
+                {
+                    // Kiểm tra trong bảng Bookings xem có đơn nào dính tới PerformanceId này không
+                    p.HasBookings = await context.Bookings.AnyAsync(b => b.PerformanceId == p.PerformanceId);
+
+                    // Map tên hiển thị
+                    p.ShowTitle = p.Show?.Title;
+                    p.TheaterName = p.Theater?.Name;
+                }
+
+                return list;
             }
         }
 
@@ -455,12 +487,23 @@ namespace StageX_DesktopApp.Services
         {
             using (var context = new AppDbContext())
             {
+                // Cách "Cũ nhưng xịn": Sử dụng cơ chế Batch Update của Entity Framework
                 foreach (var s in seatsToUpdate)
                 {
-                    var dbSeat = new Seat { SeatId = s.SeatId, CategoryId = s.CategoryId };
-                    context.Seats.Attach(dbSeat);
-                    context.Entry(dbSeat).Property(x => x.CategoryId).IsModified = true;
+                    if (s.SeatId > 0)
+                    {
+                        // Tạo một object giả chỉ chứa ID và thông tin cần sửa
+                        var dbSeat = new Seat { SeatId = s.SeatId, CategoryId = s.CategoryId };
+
+                        // Attach vào context để nó biết đây là dữ liệu có sẵn
+                        context.Seats.Attach(dbSeat);
+
+                        // Chỉ đánh dấu trường CategoryId là đã thay đổi -> EF chỉ sinh SQL update cột này
+                        context.Entry(dbSeat).Property(x => x.CategoryId).IsModified = true;
+                    }
                 }
+
+                // SaveChangesAsync sẽ tự động tối ưu và gửi lệnh xuống DB một lần
                 await context.SaveChangesAsync();
             }
         }
@@ -473,6 +516,7 @@ namespace StageX_DesktopApp.Services
                 await context.Database.ExecuteSqlInterpolatedAsync($"CALL proc_delete_theater({theaterId})");
             }
         }
+
         // ... (Code cũ) ...
 
         // --- [DASHBOARD] BẢNG ĐIỀU KHIỂN ---

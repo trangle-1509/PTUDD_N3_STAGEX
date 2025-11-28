@@ -35,8 +35,8 @@ namespace StageX_DesktopApp.Models
         [NotMapped]
         public string ActorsDisplay { get; set; }
 
-        // Đảm bảo bạn vẫn giữ phần khởi tạo danh sách này từ bước sửa trước
-        public virtual ICollection<Genre> Genres { get; set; } = new List<Genre>();
+        // Ghi chú: Mối quan hệ Nhiều-Nhiều
         public virtual ICollection<Actor> Actors { get; set; } = new List<Actor>();
+        public virtual ICollection<Genre> Genres { get; set; } = new List<Genre>();
     }
 }
