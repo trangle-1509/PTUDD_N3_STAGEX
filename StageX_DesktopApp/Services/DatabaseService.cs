@@ -568,58 +568,63 @@ namespace StageX_DesktopApp.Services
 
         public async Task<DashboardSummary> GetDashboardSummaryAsync()
         {
-            using (var context = new AppDbContext())
-            {
-                var result = await context.DashboardSummaries.FromSqlRaw("CALL proc_dashboard_summary()").ToListAsync();
-                return result.FirstOrDefault() ?? new DashboardSummary();
-            }
+            using var context = new AppDbContext();
+            var results = await context.DashboardSummaries
+                .FromSqlRaw("CALL proc_dashboard_summary()")
+                .ToListAsync();
+            return results.FirstOrDefault();
         }
 
         public async Task<List<RevenueMonthly>> GetRevenueMonthlyAsync()
         {
-            using (var context = new AppDbContext())
-            {
-                return await context.RevenueMonthlies.FromSqlRaw("CALL proc_revenue_monthly()").ToListAsync();
-            }
+            using var context = new AppDbContext();
+            return await context.RevenueMonthlies
+                .FromSqlRaw("CALL proc_revenue_monthly()")
+                .ToListAsync();
         }
 
         public async Task<List<ChartDataModel>> GetOccupancyDataAsync(string filter)
         {
-            using (var context = new AppDbContext())
+            using var context = new AppDbContext();
+
+            // Gọi đúng các Proc đã sửa lỗi thời gian 2025
+            string sql = filter switch
             {
-                string sql = filter switch
-                {
-                    "month" => "CALL proc_chart_last_4_weeks()",
-                    "year" => "CALL proc_sold_tickets_yearly()",
-                    _ => "CALL proc_chart_last_7_days()"
-                };
-                return await context.ChartDatas.FromSqlRaw(sql).ToListAsync();
-            }
+                "month" => "CALL proc_chart_last_4_weeks()",
+                "year" => "CALL proc_sold_tickets_yearly()",
+                _ => "CALL proc_chart_last_7_days()"
+            };
+
+            return await context.ChartDatas.FromSqlRaw(sql).ToListAsync();
         }
 
         // [HÀM BỊ THIẾU - NGUYÊN NHÂN LỖI]
-        public async Task<List<TopShow>> GetTopShowsAsync()
+        public async Task<List<TopShow>> GetTopShowsAsync(DateTime? start = null, DateTime? end = null)
         {
-            using (var context = new AppDbContext())
-            {
-                return await context.TopShows
-                    .FromSqlRaw("CALL proc_top5_shows_by_tickets()")
-                    .ToListAsync();
-            }
+            using var context = new AppDbContext();
+
+            // Chuyển ngày sang chuỗi SQL chuẩn hoặc NULL nếu không lọc
+            string sStart = start.HasValue ? $"'{start.Value:yyyy-MM-dd HH:mm:ss}'" : "NULL";
+            string sEnd = end.HasValue ? $"'{end.Value:yyyy-MM-dd HH:mm:ss}'" : "NULL";
+
+            // Gọi Stored Procedure mới
+            return await context.TopShows
+                .FromSqlRaw($"CALL proc_top5_shows_by_date_range({sStart}, {sEnd})")
+                .ToListAsync();
         }
 
         // [HÀM BỔ SUNG CHO FILTER NGÀY]
         public async Task<List<TopShow>> GetTopShowsByDateRangeAsync(DateTime? start, DateTime? end)
         {
-            using (var context = new AppDbContext())
-            {
-                string sStart = start.HasValue ? $"'{start.Value:yyyy-MM-dd HH:mm:ss}'" : "NULL";
-                string sEnd = end.HasValue ? $"'{end.Value:yyyy-MM-dd HH:mm:ss}'" : "NULL";
+            using var context = new AppDbContext();
 
-                return await context.TopShows
-                    .FromSqlRaw($"CALL proc_top5_shows_by_date_range({sStart}, {sEnd})")
-                    .ToListAsync();
-            }
+            // Chuyển ngày sang chuỗi SQL hoặc NULL
+            string sStart = start.HasValue ? $"'{start.Value:yyyy-MM-dd HH:mm:ss}'" : "NULL";
+            string sEnd = end.HasValue ? $"'{end.Value:yyyy-MM-dd HH:mm:ss}'" : "NULL";
+
+            return await context.TopShows
+                .FromSqlRaw($"CALL proc_top5_shows_by_date_range({sStart}, {sEnd})")
+                .ToListAsync();
         }
 
         // --- [BOOKING] QUẢN LÝ ĐƠN HÀNG ---
