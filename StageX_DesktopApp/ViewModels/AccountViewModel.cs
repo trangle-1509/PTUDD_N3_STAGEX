@@ -167,16 +167,40 @@ namespace StageX_DesktopApp.ViewModels
         [RelayCommand]
         private async Task Delete(User user)
         {
+            // 1. Chặn tự xóa mình
             if (user.UserId == AuthSession.CurrentUser?.UserId)
             {
-                MessageBox.Show("Không thể tự xóa mình!");
+                MessageBox.Show("Không thể tự xóa tài khoản đang đăng nhập!", "Cảnh báo", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            if (MessageBox.Show($"Xóa user '{user.AccountName}'?", "Xác nhận", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            // 2. Hỏi xác nhận
+            if (MessageBox.Show($"Bạn có chắc chắn muốn xóa tài khoản '{user.AccountName}' không?",
+                                "Xác nhận xóa", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             {
-                await _dbService.DeleteUserAsync(user.UserId);
-                await LoadAccounts();
+                try
+                {
+                    // 3. Gọi lệnh xóa (SQL sẽ tự kiểm tra)
+                    await _dbService.DeleteUserAsync(user.UserId);
+
+                    MessageBox.Show("Đã xóa tài khoản thành công!", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+                    await LoadAccounts();
+                }
+                catch (Exception ex)
+                {
+                    // 4. Bắt lỗi từ SQL trả về
+                    // Kiểm tra nếu lỗi chứa từ khóa chúng ta đã định nghĩa trong SQL
+                    if (ex.Message.Contains("USER_HAS_BOOKING_HISTORY") || (ex.InnerException != null && ex.InnerException.Message.Contains("USER_HAS_BOOKING_HISTORY")))
+                    {
+                        MessageBox.Show($"Không thể xóa tài khoản '{user.AccountName}' vì đã có lịch sử giao dịch/đơn hàng.\n\nVui lòng chuyển trạng thái sang 'Khóa' để bảo toàn dữ liệu.",
+                                        "Không thể xóa", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
+                    else
+                    {
+                        // Lỗi khác
+                        MessageBox.Show($"Lỗi khi xóa: {ex.Message}", "Lỗi", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
             }
         }
     }

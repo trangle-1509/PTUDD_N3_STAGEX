@@ -94,8 +94,8 @@ namespace StageX_DesktopApp.Services
         {
             using (var context = new AppDbContext())
             {
-                // Gọi SP: proc_delete_staff
-                await context.Database.ExecuteSqlInterpolatedAsync($"CALL proc_delete_staff({userId})");
+                // Gọi Procedure: Nó sẽ tự xóa hoặc tự ném lỗi nếu không xóa được
+                await context.Database.ExecuteSqlInterpolatedAsync($"CALL proc_delete_user_safe({userId})");
             }
         }
 

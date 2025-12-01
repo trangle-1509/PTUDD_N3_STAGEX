@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 01, 2025 at 04:19 PM
+-- Generation Time: Dec 01, 2025 at 11:15 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -307,14 +307,27 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_delete_show_genres` (IN `in_sh
     DELETE FROM show_genres WHERE show_id = in_show_id;
 END$$
 
-CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_delete_staff` (IN `in_user_id` INT)   BEGIN
-    DELETE FROM users
-    WHERE user_id = in_user_id
-      AND user_type = 'Nhân viên';
-END$$
-
 CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_delete_theater` (IN `in_theater_id` INT)   BEGIN
     DELETE FROM theaters WHERE theater_id = in_theater_id;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_delete_user_safe` (IN `in_user_id` INT)   BEGIN
+    DECLARE booking_count INT;
+
+    -- 1. Kiểm tra: User này có là Khách hàng (user_id) hoặc Người lập đơn (created_by) không?
+    SELECT COUNT(*) INTO booking_count
+    FROM bookings
+    WHERE user_id = in_user_id OR created_by = in_user_id;
+
+    -- 2. Xử lý logic
+    IF booking_count > 0 THEN
+        -- Nếu dính dữ liệu -> Bắn lỗi về cho C# (Mã 45000 là lỗi người dùng định nghĩa)
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'USER_HAS_BOOKING_HISTORY';
+    ELSE
+        -- Nếu sạch -> Xóa User và các thông tin liên quan (UserDetail tự xóa theo Cascade)
+        DELETE FROM users WHERE user_id = in_user_id;
+    END IF;
 END$$
 
 CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_expire_pending_payments` ()   BEGIN
