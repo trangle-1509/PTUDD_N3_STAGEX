@@ -127,7 +127,7 @@ namespace StageX_DesktopApp.ViewModels
                 {
                     chartValuesHistory.Add(item.TotalRevenue);
                     chartValuesForecast.Add(double.NaN);
-                    labels.Add(item.Date.ToString("MM/yyyy"));
+                    labels.Add(item.Date.ToString("MM/yy"));
                 }
 
                 if (prediction != null)
@@ -141,7 +141,7 @@ namespace StageX_DesktopApp.ViewModels
                         float val = prediction.ForecastedRevenue[i];
                         if (val < 0) val = 0;
                         chartValuesForecast.Add(val);
-                        labels.Add(lastDate.AddMonths(i + 1).ToString("MM/yyyy"));
+                        labels.Add(lastDate.AddMonths(i + 1).ToString("MM/yy"));
                     }
                 }
 
