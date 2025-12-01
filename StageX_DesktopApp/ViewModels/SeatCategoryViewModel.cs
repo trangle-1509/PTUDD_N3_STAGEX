@@ -5,6 +5,7 @@ using StageX_DesktopApp.Models;
 using StageX_DesktopApp.Services;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 
@@ -14,15 +15,27 @@ namespace StageX_DesktopApp.ViewModels
     {
         private readonly DatabaseService _dbService;
 
-        // Danh sách hiển thị
-        [ObservableProperty] private List<SeatCategory> _categories;
+        [ObservableProperty] private List<SeatCategory> _categories = new();
 
-        // Các trường nhập liệu
         [ObservableProperty] private int _categoryId;
-        [ObservableProperty] private string _categoryName;
-        [ObservableProperty] private string _basePriceStr; // Binding string để dễ xử lý input
+        [ObservableProperty] private string _categoryName = "";
+        [ObservableProperty] private string _basePriceStr = "";
         [ObservableProperty] private string _saveBtnContent = "Thêm";
         [ObservableProperty] private bool _isEditing = false;
+
+        // === DANH SÁCH MÀU + TRẠNG THÁI ===
+        private static readonly string[] PresetColors =
+        {
+            "#E74C3C", "#C0392B", "#E67E22", "#D35400", "#F39C12", "#F1C40F",
+            "#27AE60", "#16A085", "#1ABC9C", "#3498DB", "#2980B9", "#9B59B6",
+            "#8E44AD", "#EC407A", "#FF5722", "#FF9800", "#FFC107", "#4CAF50",
+            "#009688", "#00BCD4", "#03A9F4", "#2196F3", "#3F51B5", "#9C27B0",
+            "#E91E63", "#FFEB3B", "#CDDC39", "#795548", "#607D8B"
+        };
+
+        private static readonly HashSet<string> UsedColors = new();
+        private static readonly Random Random = new();
+        private static readonly object LockObject = new();
 
         public SeatCategoryViewModel()
         {
@@ -30,6 +43,7 @@ namespace StageX_DesktopApp.ViewModels
             LoadCategoriesCommand.Execute(null);
             WeakReferenceMessenger.Default.RegisterAll(this);
         }
+
         public class SeatCategoryChangedMessage
         {
             public string Value { get; }
@@ -40,6 +54,19 @@ namespace StageX_DesktopApp.ViewModels
         private async Task LoadCategories()
         {
             Categories = await _dbService.GetSeatCategoriesAsync();
+
+            // Đồng bộ UsedColors từ DB mỗi khi load
+            lock (LockObject)
+            {
+                UsedColors.Clear();
+                foreach (var cat in Categories)
+                {
+                    if (!string.IsNullOrWhiteSpace(cat.ColorClass) && cat.ColorClass.StartsWith("#"))
+                    {
+                        UsedColors.Add(cat.ColorClass.Trim().ToUpperInvariant());
+                    }
+                }
+            }
         }
 
         [RelayCommand]
@@ -48,8 +75,7 @@ namespace StageX_DesktopApp.ViewModels
             if (cat == null) return;
             CategoryId = cat.CategoryId;
             CategoryName = cat.CategoryName;
-            BasePriceStr = cat.BasePrice.ToString("F0"); // Hiển thị không số thập phân
-
+            BasePriceStr = cat.BasePrice.ToString("F0");
             SaveBtnContent = "Lưu";
             IsEditing = true;
         }
@@ -67,37 +93,48 @@ namespace StageX_DesktopApp.ViewModels
         [RelayCommand]
         private async Task Save()
         {
-            // Validate
             if (string.IsNullOrWhiteSpace(CategoryName) || CategoryName.Contains("Tên hạng"))
             {
                 MessageBox.Show("Vui lòng nhập tên hạng ghế hợp lệ!");
                 return;
             }
 
-            decimal.TryParse(BasePriceStr, out decimal price);
+            if (!decimal.TryParse(BasePriceStr, out decimal price) || price < 0)
+            {
+                MessageBox.Show("Vui lòng nhập giá hợp lệ!");
+                return;
+            }
 
             try
             {
                 var cat = new SeatCategory
                 {
                     CategoryId = CategoryId,
-                    CategoryName = CategoryName,
+                    CategoryName = CategoryName.Trim(),
                     BasePrice = price
                 };
 
-                // Nếu là thêm mới -> Random màu (Logic từ code cũ)
+                // CHỈ KHI THÊM MỚI MỚI RANDOM MÀU
                 if (CategoryId == 0)
                 {
                     cat.ColorClass = GetRandomVibrantColor();
                 }
+                else
+                {
+                    // Khi sửa: giữ nguyên màu cũ
+                    cat.ColorClass = Categories.FirstOrDefault(c => c.CategoryId == CategoryId)?.ColorClass;
+                }
+
+                // Đảm bảo không bao giờ null
+                cat.ColorClass ??= "#95A5A6"; // fallback cuối cùng (xám đậm)
 
                 await _dbService.SaveSeatCategoryAsync(cat);
 
                 MessageBox.Show(CategoryId > 0 ? "Cập nhật thành công!" : "Thêm mới thành công!");
-                Cancel(); // Reset form
-                WeakReferenceMessenger.Default.Send(new SeatCategoryChangedMessage("Updated"));
-                await LoadCategories(); // Tải lại bảng
 
+                Cancel();
+                WeakReferenceMessenger.Default.Send(new SeatCategoryChangedMessage("Updated"));
+                await LoadCategories();
             }
             catch (Exception ex)
             {
@@ -110,50 +147,104 @@ namespace StageX_DesktopApp.ViewModels
         {
             if (cat == null) return;
 
-            try
+            bool isInUse = await _dbService.IsSeatCategoryInUseAsync(cat.CategoryId);
+            if (isInUse)
             {
-                // 1. [KIỂM TRA RÀNG BUỘC] 
-                // Gọi hàm vừa viết bên Service để xem hạng ghế có đang được dùng không
-                bool isInUse = await _dbService.IsSeatCategoryInUseAsync(cat.CategoryId);
-
-                if (isInUse)
-                {
-                    MessageBox.Show($"Không thể xóa hạng ghế '{cat.CategoryName}'!\n\nLý do: Hạng ghế này đang được gán cho ghế trong Rạp.\nVui lòng gỡ bỏ hạng ghế này khỏi sơ đồ rạp trước khi xóa.",
-                                    "Không thể xóa",
-                                    MessageBoxButton.OK,
-                                    MessageBoxImage.Warning);
-                    return; // Dừng lại, không cho xóa
-                }
-
-                // 2. [XÁC NHẬN XÓA]
-                if (MessageBox.Show($"Bạn có chắc chắn muốn xóa hạng ghế '{cat.CategoryName}' không?",
-                                    "Xác nhận xóa",
-                                    MessageBoxButton.YesNo,
-                                    MessageBoxImage.Question) == MessageBoxResult.Yes)
-                {
-                    await _dbService.DeleteSeatCategoryAsync(cat.CategoryId);
-                    MessageBox.Show("Đã xóa thành công!");
-
-                    await LoadCategories();
-
-                    // Nếu đang sửa đúng cái vừa xóa thì reset form về trạng thái thêm mới
-                    if (CategoryId == cat.CategoryId)
-                    {
-                        Cancel();
-                    }
-                }
+                MessageBox.Show($"Không thể xóa hạng ghế '{cat.CategoryName}'!\n\nLý do: Hạng ghế này đang được dùng trong rạp.",
+                    "Không thể xóa", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
             }
-            catch (Exception ex)
+
+            if (MessageBox.Show($"Xóa hạng ghế '{cat.CategoryName}'?", "Xác nhận", MessageBoxButton.YesNo, MessageBoxImage.Question)
+                == MessageBoxResult.Yes)
             {
-                MessageBox.Show("Lỗi khi xóa: " + ex.Message);
+                await _dbService.DeleteSeatCategoryAsync(cat.CategoryId);
+
+                // Giải phóng màu khi xóa
+                lock (LockObject)
+                {
+                    if (!string.IsNullOrWhiteSpace(cat.ColorClass))
+                        UsedColors.Remove(cat.ColorClass.Trim().ToUpperInvariant());
+                }
+
+                MessageBox.Show("Đã xóa thành công!");
+                await LoadCategories();
+
+                if (CategoryId == cat.CategoryId) Cancel();
             }
         }
 
-        // Hàm random màu từ code cũ
+        // ========================== HÀM RANDOM MÀU KHÔNG TRÙNG ==========================
         private string GetRandomVibrantColor()
         {
-            string[] safeColors = { "E74C3C", "8E44AD", "3498DB", "1ABC9C", "27AE60", "F1C40F", "E67E22", "D35400", "C0392B", "9B59B6", "2980B9", "16A085", "F39C12", "7F8C8D", "2C3E50" };
-            return safeColors[new Random().Next(safeColors.Length)];
+            lock (LockObject)
+            {
+                var available = PresetColors
+                    .Select(c => c.ToUpperInvariant())
+                    .Except(UsedColors)
+                    .ToList();
+
+                if (available.Any())
+                {
+                    string color = available[Random.Next(available.Count)];
+                    UsedColors.Add(color);
+                    return color; // Trả về dạng #FF5733
+                }
+
+                // Hết màu cố định → sinh màu mới đẹp
+                string newColor;
+                int attempts = 0;
+                do
+                {
+                    newColor = GenerateVibrantColor();
+                    attempts++;
+                } while (UsedColors.Contains(newColor.ToUpperInvariant()) && attempts < 50);
+
+                UsedColors.Add(newColor.ToUpperInvariant());
+                return newColor;
+            }
+        }
+
+        // Hàm sinh màu đẹp (đã thêm lại!)
+        private string GenerateVibrantColor()
+        {
+            double h = Random.NextDouble();                    // Hue: 0-1
+            double s = 0.75 + Random.NextDouble() * 0.25;     // Saturation: 75-100%
+            double l = 0.55 + Random.NextDouble() * 0.25;     // Lightness: 55-80%
+
+            var (r, g, b) = HslToRgb(h, s, l);
+            return $"#{r:X2}{g:X2}{b:X2}";
+        }
+
+        private (int R, int G, int B) HslToRgb(double h, double s, double l)
+        {
+            double r = 0, g = 0, b = 0;
+
+            if (s == 0)
+            {
+                r = g = b = l;
+            }
+            else
+            {
+                double temp2 = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                double temp1 = 2 * l - temp2;
+
+                r = HueToRgb(temp1, temp2, h + 1.0 / 3.0);
+                g = HueToRgb(temp1, temp2, h);
+                b = HueToRgb(temp1, temp2, h - 1.0 / 3.0);
+            }
+
+            return ((int)(r * 255), (int)(g * 255), (int)(b * 255));
+        }
+
+        private double HueToRgb(double t1, double t2, double h)
+        {
+            if (h < 0) h += 1;
+            if (h > 1) h -= 1;
+            if (6 * h < 1) return t1 + (t2 - t1) * 6 * h;
+            if (2 * h < 1) return t2;
+            if (3 * h < 2) return t1 + (t2 - t1) * (2.0 / 3.0 - h) * 6;
+            return t1;
         }
     }
 }
