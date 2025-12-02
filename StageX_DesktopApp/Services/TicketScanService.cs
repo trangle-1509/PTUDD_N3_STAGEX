@@ -24,15 +24,19 @@ namespace StageX_DesktopApp.Services
                 BaseAddress = new Uri(baseUrl)
             };
         }
-
+        // Hàm gọi API soát vé
+        // Input: Mã vé (string)
+        // Output: Tuple (Thành công/Thất bại, Thông báo phản hồi)
         public async Task<string> ScanTicketAsync(string ticketCode)
         {
+            
             if (string.IsNullOrWhiteSpace(ticketCode))
             {
                 throw new ArgumentException("ticketCode is required", nameof(ticketCode));
             }
-
+            // Tạo payload JSON để gửi đi
             var payload = new { code = ticketCode };
+            // Gửi POST request đến API
             var response = await _client.PostAsJsonAsync("api/TicketScan", payload);
 
             if (!response.IsSuccessStatusCode)
@@ -48,6 +52,7 @@ namespace StageX_DesktopApp.Services
                     return $"Lỗi: {response.ReasonPhrase}";
                 }
             }
+            // Parse JSON trả về thành object dynamic để lấy thông báo
             var result = await response.Content.ReadFromJsonAsync<ApiResponse>();
             return result?.codevalue ?? "Không xác định";
         }

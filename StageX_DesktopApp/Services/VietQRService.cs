@@ -10,14 +10,15 @@ namespace StageX_DesktopApp.Services
     public class VietQRService
     {
         // --- CẤU HÌNH TÀI KHOẢN NHẬN TIỀN ---
-        // Bạn hãy thay đổi các thông số này cho đúng với tài khoản thực tế
         private const string ACCOUNT_NO = "9923192231";       // Số tài khoản
         private const string ACCOUNT_NAME = "LE THI MY TRANG";   // Tên chủ tài khoản (Không dấu)
-        private const int ACQ_ID = 970436;                    // Mã Bin ngân hàng (VD: 970436 là Vietcombank, 970422 là MBBank)
+        private const int ACQ_ID = 970436;                    // Mã Bin ngân hàng (VD: 970436 là Vietcombank)
         private const string TEMPLATE = "compact2";           // Mẫu QR (compact, compact2, qr_only, print)
 
+        // Hàm gọi API VietQR để sinh ảnh mã QR
         public async Task<BitmapImage> GenerateQrCodeAsync(decimal amount, string content)
         {
+            // Tạo client HTTP request đến API VietQR
             var client = new RestClient("https://api.vietqr.io/v2/generate");
             var request = new RestRequest("", Method.Post);
             request.AddHeader("Content-Type", "application/json");

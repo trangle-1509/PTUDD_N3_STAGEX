@@ -2,9 +2,7 @@ namespace Stagex.Api.Models
 {
     public class ScanRequest
     {
-        /// <summary>
-        /// Không biết cái nào, có phải ticket_code không nên để luôn, nữa sửa đi nha
-        /// </summary>
+        // Class đại diện cho dữ liệu JSON gửi lên từ Client (Desktop App)
         public string? Barcode { get; set; }
         public string? TicketCode { get; set; }
         public string? ticket_code { get; set; }

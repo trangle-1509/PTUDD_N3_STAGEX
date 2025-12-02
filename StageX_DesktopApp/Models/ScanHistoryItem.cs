@@ -2,6 +2,7 @@
 
 namespace StageX_DesktopApp.Models
 {
+    // Class đại diện cho 1 dòng trong bảng Lịch sử quét
     public class ScanHistoryItem
     {
         public DateTime Timestamp { get; set; }
