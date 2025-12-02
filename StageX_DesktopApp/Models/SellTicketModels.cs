@@ -4,7 +4,7 @@ using System.Windows.Media;
 
 namespace StageX_DesktopApp.Models
 {
-    // Class dùng cho ComboBox chọn Vở diễn
+    // Class dùng cho ComboBox chọn Vở diễn (DisplayMemberPath="title")
     public class ShowInfo
     {
         public int show_id { get; set; }
@@ -22,8 +22,6 @@ namespace StageX_DesktopApp.Models
         public string Display => $"{performance_date:yyyy-MM-dd} {start_time:hh\\:mm}";
     }
 
-    // [CLASS BỊ THIẾU GÂY RA LỖI]
-    // Dùng để hứng dữ liệu từ Stored Procedure cũ (nếu còn dùng)
     public class AvailableSeat
     {
         public int seat_id { get; set; }
@@ -48,9 +46,12 @@ namespace StageX_DesktopApp.Models
         public TimeSpan start_time { get; set; }
         public TimeSpan? end_time { get; set; }
         public decimal price { get; set; }
+        // Thông tin vé để kiểm tra hết vé
         public int sold_count { get; set; }
         public int total_count { get; set; }
+        // Logic kiểm tra: Nếu số vé bán >= tổng ghế -> Hết vé
         public bool IsSoldOut => total_count > 0 && sold_count >= total_count;
+        // Text hiển thị trên nút bấm
         public string Display => $"{show_title}\n{performance_date:yyyy-MM-dd} {start_time:hh\\:mm}";
     }
 
@@ -67,11 +68,13 @@ namespace StageX_DesktopApp.Models
 
         [NotMapped] public string SeatLabel => $"{RowChar?.Trim()}{SeatNumber}";
 
+        // Chuyển đổi mã màu Hex sang đối tượng Brush để WPF tô màu nền
         [NotMapped]
         public SolidColorBrush SeatColor
         {
             get
             {
+                // Chuyển đổi mã màu Hex sang đối tượng Brush để WPF tô màu nền
                 if (string.IsNullOrWhiteSpace(ColorClass)) return new SolidColorBrush(Color.FromRgb(30, 40, 60));
                 try
                 {

@@ -14,11 +14,14 @@ using System.Windows.Media.Imaging;
 
 namespace StageX_DesktopApp.ViewModels
 {
-    // --- CÁC CLASS HỖ TRỢ ---
+    // --- CÁC CLASS HỖ TRỢ UI ---
+    // Item trong giỏ hàng (DataGrid bên phải)
     public class BillSeatItem { public int SeatId { get; set; } public string SeatLabel { get; set; } public decimal Price { get; set; } }
+    // Item cho phần chú thích màu sắc
     public class LegendItem { public string Name { get; set; } public SolidColorBrush Color { get; set; } }
 
-    // 1. Wrapper cho Nút Suất chiếu Cao điểm (Viền vàng)
+    // 1. WRAPPER CHO NÚT SUẤT CHIẾU CAO ĐIỂM
+    // Thêm thuộc tính IsSelected để tô viền vàng khi chọn
     public partial class PeakUiItem : ObservableObject
     {
         public PeakPerformanceInfo Data { get; }
@@ -26,25 +29,27 @@ namespace StageX_DesktopApp.ViewModels
         public PeakUiItem(PeakPerformanceInfo data) { Data = data; }
     }
 
-    // 2. Wrapper cho Ghế (Sơ đồ)
+    // 2. WRAPPER CHO TỪNG Ô GHẾ TRÊN SƠ ĐỒ
     public partial class TicketSeatUiItem : ObservableObject
     {
-        public SeatStatus Data { get; }
-        [ObservableProperty] private bool _isSelected;
-        public IRelayCommand SelectCommand { get; }
-        public string VisualRowChar { get; }
+        public SeatStatus Data { get; }// Dữ liệu gốc
+        [ObservableProperty] private bool _isSelected; // True = Đang chọn vào giỏ (Viền vàng)
+        public IRelayCommand SelectCommand { get; } // Lệnh khi click vào ghế
+        public string VisualRowChar { get; } // Tên hàng hiển thị (để xử lý logic lối đi)
 
         public TicketSeatUiItem(SeatStatus data, string visualRow, bool isSelected, Action<TicketSeatUiItem> onSelect)
         {
             Data = data; VisualRowChar = visualRow; IsSelected = isSelected;
+            // Command gọi callback onSelect. Disable nếu ghế đã bán (!Data.IsSold)
             SelectCommand = new RelayCommand(() => onSelect(this), () => !Data.IsSold);
         }
+        // Hiển thị tên ghế theo hàng ảo
         public string DisplayText => $"{VisualRowChar}{Data.SeatNumber}";
         public string TooltipText => Data.IsSold ? "Đã bán" : $"{Data.CategoryName} (+{Data.BasePrice:N0}đ)";
         public SolidColorBrush BackgroundColor => Data.IsSold ? new SolidColorBrush(Color.FromRgb(80, 80, 80)) : Data.SeatColor;
     }
 
-    // 3. Wrapper cho Hàng ghế
+    // 3. WRAPPER CHO MỘT HÀNG GHẾ (ITEMS CONTROL DỌC)
     public class TicketRowItem
     {
         public string RowName { get; set; }
@@ -58,30 +63,36 @@ namespace StageX_DesktopApp.ViewModels
         private readonly DatabaseService _dbService;
         private readonly VietQRService _qrService;
 
+        // Dữ liệu nguồn cho ComboBox
         [ObservableProperty] private List<ShowInfo> _shows;
         [ObservableProperty] private List<PerformanceInfo> _performances;
 
-        // List dùng Wrapper PeakUiItem
+        // List suất chiếu cao điểm (Dùng Wrapper PeakUiItem)
         [ObservableProperty] private ObservableCollection<PeakUiItem> _topPerformances;
 
+        // Giỏ hàng và Chú thích
         [ObservableProperty] private ObservableCollection<BillSeatItem> _billSeats = new();
         [ObservableProperty] private ObservableCollection<LegendItem> _legendItems = new();
 
-        // Dữ liệu sơ đồ ghế MVVM
+        // Dữ liệu để vẽ sơ đồ ghế
         [ObservableProperty] private ObservableCollection<TicketRowItem> _seatMap;
 
+        // Trạng thái giao diện
         [ObservableProperty] private bool _isPeakMode = false;
         [ObservableProperty] private ShowInfo _selectedShow;
         [ObservableProperty] private PerformanceInfo _selectedPerformance;
+        // Text hiển thị thông tin
         [ObservableProperty] private string _selectedShowText;
         [ObservableProperty] private string _selectedPerfText;
         [ObservableProperty] private string _totalText = "Thành tiền: 0đ";
+        // Phần thanh toán
         [ObservableProperty] private string _changeText = "0đ";
         [ObservableProperty] private string _cashGiven;
         [ObservableProperty] private bool _isCashPayment = true;
         [ObservableProperty] private bool _isQrVisible = false;
         [ObservableProperty] private BitmapImage _qrImageSource;
 
+        // Biến tạm lưu giá vé cơ bản và ID suất diễn đang chọn
         private int _currentPerfId;
         private decimal _currentPrice;
 
@@ -91,7 +102,7 @@ namespace StageX_DesktopApp.ViewModels
             _qrService = new VietQRService();
             Task.Run(async () => await InitData());
         }
-
+        // Hàm khởi tạo dữ liệu ban đầu
         private async Task InitData()
         {
             await Application.Current.Dispatcher.InvokeAsync(async () =>
@@ -101,39 +112,47 @@ namespace StageX_DesktopApp.ViewModels
             });
         }
 
-        // --- LOGIC VẼ SƠ ĐỒ  ---
+        // --- LOGIC VẼ SƠ ĐỒ TỰ ĐỘNG (CORE LOGIC) ---
+        // Hàm này biến List ghế phẳng từ DB thành cấu trúc Hàng/Cột cho giao diện
         private void BuildVisualSeatMap(List<SeatStatus> seats)
         {
             if (seats == null || seats.Count == 0) { SeatMap = new ObservableCollection<TicketRowItem>(); return; }
 
+            // 1. Tìm danh sách các Hàng có trong dữ liệu (A, C, D...)
             var distinctRows = seats.Where(s => !string.IsNullOrEmpty(s.RowChar))
                                     .Select(s => s.RowChar.Trim().ToUpper()).Distinct()
                                     .OrderBy(r => r.Length).ThenBy(r => r).ToList();
 
             if (distinctRows.Count == 0) return;
-
+            // Tìm hàng lớn nhất (VD: D -> Index 3) để biết vòng lặp chạy đến đâu
             string maxRowChar = distinctRows.Last();
             int maxRowIndex = (string.IsNullOrEmpty(maxRowChar) ? 0 : (int)(maxRowChar[0] - 'A'));
+            // Tìm số cột lớn nhất
             int maxCol = seats.Max(s => s.SeatNumber);
 
             var newMap = new ObservableCollection<TicketRowItem>();
             int visualRowCounter = 0;
-
+            // 2. Vòng lặp quét từ A -> Hàng cuối cùng
             for (int i = 0; i <= maxRowIndex; i++)
             {
                 string physicalRowChar = ((char)('A' + i)).ToString();
+                // Lấy tất cả ghế thuộc hàng này
                 var seatsInRow = seats.Where(s => s.RowChar == physicalRowChar).ToList();
 
                 if (seatsInRow.Any())
                 {
+                    // == TRƯỜNG HỢP CÓ GHẾ ==
+                    // Đặt tên hiển thị mới (VD: C -> B nếu hàng B bị xóa làm lối đi)
                     string visualLabel = ((char)('A' + visualRowCounter++)).ToString();
                     var rowItem = new TicketRowItem { RowName = visualLabel, Items = new ObservableCollection<object>() };
-
+                    // Quét từng cột từ 1 -> MaxCol
                     for (int c = 1; c <= maxCol; c++)
                     {
                         var seat = seatsInRow.FirstOrDefault(s => s.SeatNumber == c);
                         if (seat != null)
                         {
+                            // Có ghế -> Tạo nút ghế
+                            // Kiểm tra xem ghế này đã có trong giỏ hàng chưa để tô viền vàng
                             bool isSelected = BillSeats.Any(b => b.SeatId == seat.SeatId);
                             var uiItem = new TicketSeatUiItem(seat, visualLabel, isSelected, OnSeatClicked);
                             rowItem.Items.Add(uiItem);
@@ -144,16 +163,18 @@ namespace StageX_DesktopApp.ViewModels
                 }
                 else
                 {
+                    // == TRƯỜNG HỢP HÀNG BỊ XÓA (LỐI ĐI) ==
+                    // Tạo hàng rỗng, không tăng visualRowCounter
                     newMap.Add(new TicketRowItem { RowName = "", Items = new ObservableCollection<object>() });
                 }
             }
             SeatMap = newMap;
         }
-
+        // Hàm xử lý khi Click vào một ghế
         private void OnSeatClicked(TicketSeatUiItem item)
         {
             if (item.Data.IsSold) return; // Không cho phép chọn ghế đã bán
-
+            // Kiểm tra xem ghế đã có trong giỏ chưa
             var existing = BillSeats.FirstOrDefault(x => x.SeatId == item.Data.SeatId);
             if (existing != null)
             {
@@ -176,8 +197,8 @@ namespace StageX_DesktopApp.ViewModels
         }
 
 
-        // --- LOGIC CHỌN SUẤT (CAO ĐIỂM & THƯỜNG) ---
-
+        // --- LOGIC CHỌN SUẤT DIỄN ---
+        // Chuyển đổi chế độ (Mặc định <-> Cao điểm)
         [RelayCommand]
         private async Task SwitchMode(string mode)
         {
@@ -186,8 +207,9 @@ namespace StageX_DesktopApp.ViewModels
 
             if (IsPeakMode)
             {
-                IsCashPayment = false;
-                var tops = await _dbService.GetTopPerformancesAsync(); // Gọi proc_top3_nearest_performances_extended
+                IsCashPayment = false; // Mặc định Chuyển khoản cho nhanh
+                var tops = await _dbService.GetTopPerformancesAsync();
+                // Tạo danh sách Wrapper cho nút bấm (để có tính năng tô viền)
                 var list = new List<PeakUiItem>();
                 foreach (var p in tops) list.Add(new PeakUiItem(p));
                 while (list.Count < 3) list.Add(new PeakUiItem(new PeakPerformanceInfo { performance_id = 0 }));
@@ -200,7 +222,7 @@ namespace StageX_DesktopApp.ViewModels
             }
         }
 
-
+        // Xử lý khi bấm nút ở Chế độ Cao điểm
         [RelayCommand]
         private void SelectPeakPerformance(PeakUiItem item)
         {
@@ -213,23 +235,38 @@ namespace StageX_DesktopApp.ViewModels
             SelectedShowText = $"Vở diễn: {item.Data.show_title}";
             SelectPerformanceLogic(item.Data.performance_id, item.Data.price, item.Data.Display);
         }
+        // Xử lý khi chọn Vở diễn từ ComboBox (Mode Thường)
+        partial void OnSelectedShowChanged(ShowInfo value) 
+        { 
+            if (value != null) 
+            { 
+                SelectedShowText = $"Vở diễn: {value.title}"; LoadPerformances(value.show_id); 
+            } 
+        }
+        private async void LoadPerformances(int showId) 
+            => Performances = await _dbService.GetPerformancesByShowAsync(showId);
 
-        partial void OnSelectedShowChanged(ShowInfo value) { if (value != null) { SelectedShowText = $"Vở diễn: {value.title}"; LoadPerformances(value.show_id); } }
-        private async void LoadPerformances(int showId) => Performances = await _dbService.GetPerformancesByShowAsync(showId);
-        partial void OnSelectedPerformanceChanged(PerformanceInfo value) { if (value != null) SelectPerformanceLogic(value.performance_id, value.price, value.Display); }
+        // Xử lý khi chọn Suất diễn từ ComboBox (Mode Thường)
+        partial void OnSelectedPerformanceChanged(PerformanceInfo value) 
+        { 
+            if (value != null) 
+                SelectPerformanceLogic(value.performance_id, value.price, value.Display); 
+        }
 
+        // Logic chung khi chọn suất diễn (Tải ghế + Tạo chú thích)
         private async void SelectPerformanceLogic(int perfId, decimal price, string display)
         {
             _currentPerfId = perfId; _currentPrice = price; SelectedPerfText = $"Suất chiếu: {display}";
             BillSeats.Clear(); UpdateTotal();
             try
             {
+                // Tải danh sách ghế từ DB
                 var seats = await _dbService.GetSeatsWithStatusAsync(perfId);
 
-                // Gọi hàm vẽ sơ đồ (Lúc trước bị thiếu dòng này)
+                // Gọi hàm vẽ sơ đồ 
                 BuildVisualSeatMap(seats);
 
-                // Tạo chú thích (Fix lỗi lặp)
+                // Tạo danh sách chú thích (Legend) - Group by Tên & Giá để không bị lặp
                 var distinctCats = seats.Where(s => !string.IsNullOrEmpty(s.CategoryName))
                                         .GroupBy(s => new { s.CategoryName, s.BasePrice })
                                         .Select(g => g.First())
@@ -242,14 +279,28 @@ namespace StageX_DesktopApp.ViewModels
             catch (Exception ex) { MessageBox.Show("Lỗi tải dữ liệu: " + ex.Message); }
         }
 
+        // --- LOGIC THANH TOÁN ---
+        // Khi nhập tiền khách đưa -> Tính lại tiền thừa và QR
         partial void OnCashGivenChanged(string value) => UpdateTotal();
+
         private async void UpdateTotal()
         {
             decimal total = BillSeats.Sum(x => x.Price); TotalText = $"Thành tiền: {total:N0}đ";
-            if (decimal.TryParse(CashGiven, out decimal given)) { decimal change = given - total; ChangeText = change >= 0 ? $"{change:N0}đ" : $"-{Math.Abs(change):N0}đ"; } else ChangeText = "0đ";
-            if (!IsCashPayment && total > 0) { IsQrVisible = true; QrImageSource = await _qrService.GenerateQrCodeAsync((int)total, "Thanh toan ve STAGEX"); } else { IsQrVisible = false; QrImageSource = null; }
+            if (decimal.TryParse(CashGiven, out decimal given)) 
+            { 
+                decimal change = given - total; ChangeText = change >= 0 ? $"{change:N0}đ" : $"-{Math.Abs(change):N0}đ"; 
+            } else ChangeText = "0đ";
+            // Tạo mã QR nếu là Chuyển khoản
+            if (!IsCashPayment && total > 0) 
+            { 
+                IsQrVisible = true; QrImageSource = await _qrService.GenerateQrCodeAsync((int)total, "Thanh toan ve STAGEX"); 
+            } else { IsQrVisible = false; QrImageSource = null; }
         }
-        [RelayCommand] private void SelectPayment(string method) { IsCashPayment = (method == "Cash"); UpdateTotal(); }
+        [RelayCommand] private void SelectPayment(string method) 
+        { 
+            IsCashPayment = (method == "Cash"); UpdateTotal(); 
+        }
+        // Lưu đơn hàng
         [RelayCommand]
         private async Task SaveOrder()
         {
@@ -294,6 +345,9 @@ namespace StageX_DesktopApp.ViewModels
             }
         }
 
-        private void ClearAllData() { SelectedShow = null; SelectedPerformance = null; _currentPerfId = 0; _currentPrice = 0; SelectedShowText = ""; SelectedPerfText = ""; BillSeats.Clear(); LegendItems.Clear(); CashGiven = ""; UpdateTotal(); SeatMap = null; }
+        private void ClearAllData() 
+        { 
+            SelectedShow = null; SelectedPerformance = null; _currentPerfId = 0; _currentPrice = 0; SelectedShowText = ""; SelectedPerfText = ""; BillSeats.Clear(); LegendItems.Clear(); CashGiven = ""; UpdateTotal(); SeatMap = null; 
+        }
     }
 }

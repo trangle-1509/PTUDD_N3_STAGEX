@@ -17,7 +17,7 @@ namespace Stagex.Api.Controllers
         }
         /// Hàm này nhận vào một request chứa JSON mã vé,
         /// Trả về một kết quả(thường là object hoặc JSON) nói rõ vé đó accepted or rejected.</returns>
-        
+
         [HttpPost]
         public async Task<IActionResult> Post([FromBody] ScanRequest request)
         {

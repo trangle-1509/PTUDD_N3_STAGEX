@@ -6,15 +6,18 @@ namespace StageX_DesktopApp.Services
 {
     public static class SoundManager
     {
+        // Đối tượng MediaPlayer để phát nhạc
         private static MediaPlayer _player = new MediaPlayer();
+        // Đường dẫn gốc của ứng dụng (nơi file .exe chạy)
         private static string _basePath = AppDomain.CurrentDomain.BaseDirectory;
 
-        // Các hàm tiện ích gọi nhanh
+        // --- CÁC HÀM GỌI NHANH ---
         public static void PlaySuccess() => PlaySound("success.mp3");
         public static void PlayError() => PlaySound("error.mp3");
         public static void PlayLogout() => PlaySound("log out.mp3");
         public static void PlayClick() => PlaySound("click.mp3");
 
+        // Hàm xử lý logic phát file
         private static void PlaySound(string fileName)
         {
             try

@@ -11,35 +11,35 @@ using System.Windows.Threading;
 
 namespace StageX_DesktopApp.ViewModels
 {
+    // ViewModel xử lý toàn bộ luồng "Quét vé"
     public partial class TicketScanViewModel : ObservableObject
     {
         private readonly TicketScanService _scanService;
 
+        // Mã vé nhập từ TextBox (binding 2 chiều)
         [ObservableProperty]
         private string ticketCode = string.Empty;
 
+        // Danh sách lịch sử quét để hiển thị ra UI
         [ObservableProperty]
-        private ObservableCollection<Models.ScanHistoryItem> scanHistory = new();
+        private ObservableCollection<ScanHistoryItem> scanHistory = new();
 
-        /// <summary>
-        /// Tập hợp các vé đã được quét và đánh dấu là đã sử dụng. Chế độ xem
-        /// liên kết với tập hợp này để hiển thị danh sách các vé đã sử dụng. Nó được
-        /// làm mới định kỳ và sau mỗi lần quét thành công để phản ánh
-        /// trạng thái hiện tại của cơ sở dữ liệu.
-        /// </summary>
+        // Danh sách vé đã được soát – load từ DB
         [ObservableProperty]
         private ObservableCollection<Ticket> usedTickets = new();
 
+        // Timer tự động làm mới danh sách vé đã soát
         private readonly DispatcherTimer _refreshTimer;
 
         public TicketScanViewModel()
         {
+            // Khởi tạo service (API endpoint)
             _scanService = new TicketScanService("http://localhost:5000/");
 
-            // Initial load of used tickets
+            // Tải danh sách vé đã quét khi mở màn hình
             _ = LoadUsedTicketsAsync();
 
-            // Thiết lập bộ hẹn giờ để làm mới danh sách vé đã sử dụng theo định kỳ 5s
+            // Tự động refresh mỗi 5 giây
             _refreshTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromSeconds(5)
@@ -48,12 +48,7 @@ namespace StageX_DesktopApp.ViewModels
             _refreshTimer.Start();
         }
 
-        /// <summary>
-        /// Lấy danh sách vé đã sử dụng từ cơ sở dữ liệu và cập nhật list
-        /// <xem cref="UsedTickets"/>. Chỉ trả về những vé có trạng thái
-        /// "Đã sử dụng" và được sắp xếp theo thời gian
-        /// cập nhật lần cuối (giảm dần).
-        /// </summary>
+        // Tải tất cả vé có trạng thái "Đã sử dụng" từ DB
         private async Task LoadUsedTicketsAsync()
         {
             using var context = new AppDbContext();
@@ -68,11 +63,10 @@ namespace StageX_DesktopApp.ViewModels
             }
             catch
             {
-                // Không log, không throw — nếu lỗi DB thì giữ nguyên danh sách cũ
+                // Không làm gì nếu lỗi DB
                 return;
             }
 
-            // Chỉ cập nhật UI nếu query thành công
             UsedTickets.Clear();
             foreach (var t in tickets)
             {
@@ -80,56 +74,90 @@ namespace StageX_DesktopApp.ViewModels
             }
         }
 
+        // Command khi người dùng nhấn nút "Quét"
         [RelayCommand]
         private async Task ScanAsync()
         {
             if (string.IsNullOrWhiteSpace(TicketCode))
-            {
                 return;
-            }
 
             string trimmedCode = TicketCode.Trim();
             string message;
 
-            // Xác thực mã có chính xác 13 chữ số và nằm trong phạm vi cho phép.
+            // Validate mã vé phải là 13 chữ số
             bool isNumeric = long.TryParse(trimmedCode, out long numericCode);
-            if (!isNumeric || trimmedCode.Length != 13 || numericCode < 1000000000000L || numericCode > 9999999999999L)
+            if (!isNumeric || trimmedCode.Length != 13 ||
+                numericCode < 1000000000000L || numericCode > 9999999999999L)
             {
-                message = $"Mã vé không hợp lệ: {trimmedCode}. Mã vé phải gồm 13 chữ số";
-                // Ghi lại nỗ lực quét không hợp lệ trong lịch sử
-                ScanHistory.Add(new Models.ScanHistoryItem
+                message = $"Mã vé không hợp lệ: {trimmedCode}. Mã vé phải gồm 13 chữ số.";
+
+                ScanHistory.Add(new ScanHistoryItem
                 {
                     Timestamp = DateTime.Now,
                     TicketCode = trimmedCode,
                     Message = message
                 });
+
                 TicketCode = string.Empty;
                 return;
             }
 
+            // Thử quét qua API → Nếu lỗi thì fallback sang DB local
             try
             {
                 message = await _scanService.ScanTicketAsync(trimmedCode);
             }
-            catch (Exception ex)
+            catch
             {
-                message = $"Lỗi: {ex.Message}";
+                message = await ScanTicketLocallyAsync(trimmedCode);
             }
 
-            // Thêm kết quả vào lịch sử quét để lưu giữ hồ sơ.
-            ScanHistory.Add(new Models.ScanHistoryItem
+            // Ghi vào lịch sử quét
+            ScanHistory.Add(new ScanHistoryItem
             {
                 Timestamp = DateTime.Now,
                 TicketCode = trimmedCode,
                 Message = message
             });
 
-            // Xóa đầu vào cho lần quét tiếp theo
             TicketCode = string.Empty;
 
-            // Làm mới danh sách vé đã sử dụng sau khi quét, vì khi quét thành công
-            // có thể trạng thái của vé đã được cập nhật trong cơ sở dữ liệu.
+            // Làm mới danh sách vé đã sử dụng
             await LoadUsedTicketsAsync();
+        }
+
+        // Hàm fallback: quét vé trực tiếp bằng DB khi API không hoạt động
+        private static async Task<string> ScanTicketLocallyAsync(string trimmedCode)
+        {
+            using var context = new AppDbContext();
+
+            long numericCode = long.Parse(trimmedCode);
+            var ticket = await context.Tickets.FirstOrDefaultAsync(t => t.TicketCode == numericCode);
+
+            if (ticket == null)
+                return $"Không tìm thấy vé có mã {trimmedCode}.";
+
+            switch (ticket.Status)
+            {
+                case "Đang chờ":
+                    return "Vé chưa được xác thực. Vui lòng xác nhận thanh toán trước.";
+
+                case "Đã sử dụng":
+                    return "Vé này đã được sử dụng.";
+
+                case "Đã hủy":
+                    return "Vé này đã bị hủy và không còn giá trị.";
+
+                case "Hợp lệ":
+                case "Hơp lệ": // chấp nhận lỗi chính tả từ DB
+                    ticket.Status = "Đã sử dụng";
+                    ticket.UpdatedAt = DateTime.Now;
+                    await context.SaveChangesAsync();
+                    return $"Vé hợp lệ. Đã cập nhật trạng thái vé {trimmedCode}.";
+
+                default:
+                    return $"Trạng thái vé không hợp lệ: {ticket.Status}.";
+            }
         }
     }
 }

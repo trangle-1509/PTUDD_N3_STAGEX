@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Stagex.Api.Models
 {
+    // Ánh xạ với bảng 'tickets' trong MySQL
     [Table("tickets")]
     public class Ticket
     {
