@@ -28,11 +28,10 @@ namespace StageX_DesktopApp.ViewModels
         [ObservableProperty] private string[] _revenueLabels;
         public Func<double, string> RevenueFormatter { get; set; } = value => value.ToString("N0");
 
-        // --- BIỂU ĐỒ TÌNH TRẠNG VÉ (OCCUPANCY) ---
+        // --- BIỂU ĐỒ TÌNH TRẠNG VÉ ---
         [ObservableProperty] private SeriesCollection _occupancySeries;
         [ObservableProperty] private List<string> _occupancyLabels;
 
-        // [SỬA LỖI 1]: Thêm biến này và để public để View gọi được
         public string CurrentOccupancyFilter { get; set; } = "week";
 
         // --- BIỂU ĐỒ TRÒN & BẢNG TOP 5 ---
@@ -54,7 +53,7 @@ namespace StageX_DesktopApp.ViewModels
         public async Task LoadData()
         {
             await LoadSummary();
-            await LoadRevenueChart();    // [SỬA LỖI 2]: Gọi đúng tên hàm
+            await LoadRevenueChart();    
             await LoadOccupancy("week");
             await LoadPieChart();
             await LoadTopShows();
@@ -72,21 +71,20 @@ namespace StageX_DesktopApp.ViewModels
             }
         }
 
-        // [SỬA LỖI 2]: Đặt tên thống nhất là LoadRevenueChart
         private async Task LoadRevenueChart()
         {
             try
             {
                 var rawData = await _dbService.GetRevenueMonthlyAsync();
+                // Chuyển dữ liệu sang dạng DateTime + TotalRevenue và lấp đầy khoảng trống
+
                 var historyData = new List<RevenueInput>();
 
                 if (rawData.Any())
                 {
                     var parsed = rawData.Select(r => {
-                        // Ưu tiên parse yyyy-MM-01 (từ code SQL mới)
                         if (DateTime.TryParse(r.month, out DateTime dt))
                             return new RevenueInput { Date = dt, TotalRevenue = (float)r.total_revenue };
-                        // Fallback cho định dạng cũ MM/yyyy
                         if (DateTime.TryParseExact(r.month, "MM/yyyy", null, System.Globalization.DateTimeStyles.None, out DateTime dt2))
                             return new RevenueInput { Date = dt2, TotalRevenue = (float)r.total_revenue };
                         return null;
@@ -104,7 +102,7 @@ namespace StageX_DesktopApp.ViewModels
                     }
                 }
 
-                // ML.NET Forecast
+                // Gọi ML.NET dự báo nếu đủ dữ liệu
                 bool canForecast = historyData.Count >= 6;
                 int horizon = 3;
                 RevenueForecast prediction = null;
@@ -129,7 +127,7 @@ namespace StageX_DesktopApp.ViewModels
                     chartValuesForecast.Add(double.NaN);
                     labels.Add(item.Date.ToString("MM/yy"));
                 }
-
+                // Thêm điểm dự báo vào series và cập nhật nhãn tháng mới
                 if (prediction != null)
                 {
                     chartValuesForecast.RemoveAt(chartValuesForecast.Count - 1);
@@ -144,7 +142,7 @@ namespace StageX_DesktopApp.ViewModels
                         labels.Add(lastDate.AddMonths(i + 1).ToString("MM/yy"));
                     }
                 }
-
+                // Tạo series cho biểu đồ
                 RevenueSeries = new SeriesCollection
                 {
                     new LineSeries
@@ -183,7 +181,6 @@ namespace StageX_DesktopApp.ViewModels
             var unsold = new ChartValues<double>();
             var labels = new List<string>();
 
-            // Ép thời gian về 2025 (như code trước)
             var anchorDate = new DateTime(2025, 11, 30);
             var culture = System.Globalization.CultureInfo.InvariantCulture;
 
@@ -230,31 +227,35 @@ namespace StageX_DesktopApp.ViewModels
             OccupancyLabels = labels;
         }
 
-        // [SỬA LỖI 3]: Đổi private thành public để View gọi được
         public async Task LoadPieChart(DateTime? start = null, DateTime? end = null)
         {
+            // Gọi DB lấy danh sách Top 5 vở diễn bán chạy nhất trong khoảng thời gian
             var topShows = await _dbService.GetTopShowsAsync(start, end);
             var series = new SeriesCollection();
+            // Duyệt qua từng vở diễn để tạo Slice
             foreach (var show in topShows)
             {
                 series.Add(new PieSeries
                 {
                     Title = show.show_name,
+                    // Giá trị của slice
                     Values = new ChartValues<double> { (double)show.sold_tickets },
                     DataLabels = true,
-                    LabelPoint = point => $"{point.Participation:P0}"
+                    LabelPoint = point => $"{point.Participation:P0}" // Hiển thị nhãn số liệu trên biểu đồ
                 });
             }
+            // Gán dữ liệu vào biến Binding để View cập nhật
             PieSeries = series;
         }
 
-        // [SỬA LỖI 3]: Đổi private thành public để View gọi được
         public async Task LoadTopShows(DateTime? start = null, DateTime? end = null)
         {
+            // Lấy dữ liệu tương tự như biểu đồ tròn
             var shows = await _dbService.GetTopShowsAsync(start, end);
+            // Chuyển đổi sang Model hiển thị
             TopShowsList = shows.Select((s, i) => new TopShowModel
             {
-                Index = i + 1,
+                Index = i + 1, // Số thứ tự bắt đầu từ 1 (vì index mảng từ 0)
                 show_name = s.show_name,
                 sold_tickets = s.sold_tickets
             }).ToList();

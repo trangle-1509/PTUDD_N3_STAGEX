@@ -31,20 +31,11 @@ namespace StageX_DesktopApp.Models
         public string show_name { get; set; } = string.Empty;
         public long sold_tickets { get; set; }
     }
-
-    /// <summary>
-    /// Phân bố đánh giá theo sao. Thuộc tính star (1-5) và rating_count.
-    /// </summary>
-    public class RatingDistribution
-    {
-        public int star { get; set; }
-        public long rating_count { get; set; }
-    }
     public class ChartDataModel
     {
         public string period { get; set; }
         public long sold_tickets { get; set; }
-        public long unsold_tickets { get; set; } // Thêm cột này để hứng dữ liệu thật
+        public long unsold_tickets { get; set; } 
     }
 
 }
