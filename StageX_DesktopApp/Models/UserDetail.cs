@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 namespace StageX_DesktopApp.Models
 {
+    // Ánh xạ class này với bảng 'user_detail' trong CSDL
     [Table("user_detail")]
     public class UserDetail
     {
@@ -17,7 +18,7 @@ namespace StageX_DesktopApp.Models
         public string? Address { get; set; }
         [Column("phone")]
         public string? Phone { get; set; }
-
+        // (Quan hệ 1-1: Mỗi User chỉ có 1 UserDetail)
         public virtual User User { get; set; }
     }
 }

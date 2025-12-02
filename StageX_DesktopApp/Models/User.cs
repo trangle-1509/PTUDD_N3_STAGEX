@@ -5,9 +5,11 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace StageX_DesktopApp.Models
 {
+    // Ánh xạ class này với bảng 'users' trong MySQL
     [Table("users")]
     public class User
     {
+        // Khóa chính của bảng (Primary Key)
         [Key]
         [Column("user_id")]
         public int UserId { get; set; }
@@ -18,13 +20,14 @@ namespace StageX_DesktopApp.Models
         [Column("account_name")]
         public string? AccountName { get; set; }
 
+        // Lưu chuỗi mã hóa (Hash) của mật khẩu, KHÔNG lưu mật khẩu gốc
         [Column("password")]
         public string PasswordHash { get; set; }
 
-        // GHI CHÚ: Đổi tên từ 'UserType' thành 'Role' để khớp với code của bạn
+        // Vai trò: 'Admin', 'Nhân viên'
         [Column("user_type")]
         public string Role { get; set; }
-
+        // Trạng thái tài khoản: 'hoạt động' hoặc 'khóa'
         [Column("status")]
         public string? Status { get; set; }
 

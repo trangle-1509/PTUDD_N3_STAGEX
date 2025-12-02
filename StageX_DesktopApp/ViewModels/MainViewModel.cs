@@ -10,9 +10,9 @@ namespace StageX_DesktopApp.ViewModels
 {
     public partial class MainViewModel : ObservableObject
     {
-        // ======= FIELDS + PROPERTIES THƯỜNG (KHÔNG DÙNG [ObservableProperty]) =======
-
+        // Biến chứa View hiện tại (UserControl) để hiển thị bên phải
         private object _currentView;
+        // Tiêu đề cửa sổ (thay đổi theo người đăng nhập)
         public object CurrentView
         {
             get => _currentView;
@@ -46,9 +46,6 @@ namespace StageX_DesktopApp.ViewModels
             get => _selectedMenu;
             set => SetProperty(ref _selectedMenu, value);
         }
-
-        // ================== CONSTRUCTOR ==================
-
         public MainViewModel()
         {
             LoadUserInfo();
@@ -56,37 +53,38 @@ namespace StageX_DesktopApp.ViewModels
 
         private void LoadUserInfo()
         {
+            // Lấy User từ AuthSession (đã lưu lúc Login)
             var user = AuthSession.CurrentUser;
             if (user == null)
             {
                 WindowTitle = "StageX";
                 return;
             }
-
+            // Cập nhật tiêu đề cửa sổ
             WindowTitle = $"StageX - Đã đăng nhập: {user.AccountName} ({user.Role})";
-
+            // Phân quyền hiển thị Menu
             if (user.Role == "Admin")
             {
                 AdminVisibility = Visibility.Visible;
                 StaffVisibility = Visibility.Collapsed;
-                NavigateDashboard();      // mặc định vào Dashboard
+                NavigateDashboard();
             }
             else
             {
                 AdminVisibility = Visibility.Collapsed;
                 StaffVisibility = Visibility.Visible;
-                NavigateSellTicket();     // mặc định vào Bán vé
+                NavigateSellTicket();
             }
         }
-
+        // Hàm chung để chuyển trang
         private void NavigateTo(object view, string menuName)
         {
-            CurrentView = view;
-            SelectedMenu = menuName;
+            CurrentView = view; // Đổi nội dung bên phải
+            SelectedMenu = menuName; // Cập nhật trạng thái nút menu (tô màu)
             SoundManager.PlayClick();
         }
 
-        // ================== COMMAND ĐIỀU HƯỚNG ==================
+        // --- CÁC COMMAND ĐIỀU HƯỚNG (Gắn vào nút Menu) ---
 
         [RelayCommand]
         private void NavigateDashboard() => NavigateTo(new DashboardView(), "Dashboard");
@@ -115,13 +113,13 @@ namespace StageX_DesktopApp.ViewModels
         [RelayCommand]
         private void NavigateBooking() => NavigateTo(new BookingManagementView(), "Booking");
 
-        // Màn hình “Quản lý vé”
         [RelayCommand]
         private void NavigateTicketScan() => NavigateTo(new TicketScanView(), "TicketScan");
 
         [RelayCommand]
         private void NavigateProfile() => NavigateTo(new ProfileView(), "Profile");
 
+        // Command Đăng xuất
         [RelayCommand]
         private void Logout()
         {

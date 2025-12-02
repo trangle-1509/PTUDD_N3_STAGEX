@@ -16,54 +16,52 @@ namespace StageX_DesktopApp.ViewModels
             _dbService = new DatabaseService();
         }
 
-        // Command nhận vào mảng PasswordBox (hoặc 3 tham số riêng)
-        // Cách đơn giản nhất là truyền cả Window để đóng khi xong
+        // Command xử lý đổi mật khẩu
+        // Parameter nhận vào là mảng các đối tượng (object[]) do MultiBinding gửi tới
         [RelayCommand]
         private async void SavePassword(object parameter)
         {
-            // Chúng ta cần lấy 3 PasswordBox từ View. 
-            // Vì PasswordBox không bind được, ta dùng MultiBinding Converter hoặc truyền tham số Array.
-            // Ở đây giả định parameter là một mảng object[] chứa 3 PasswordBox và Window
-
+            // Kiểm tra tham số có phải là mảng và đủ 4 phần tử không
             if (parameter is object[] controls && controls.Length == 4)
             {
+                // Ép kiểu các thành phần giao diện
                 var currentBox = controls[0] as PasswordBox;
                 var newBox = controls[1] as PasswordBox;
                 var confirmBox = controls[2] as PasswordBox;
                 var window = controls[3] as Window;
-
+                // Lấy chuỗi mật khẩu từ các ô
                 string currentPass = currentBox?.Password;
                 string newPass = newBox?.Password;
                 string confirmPass = confirmBox?.Password;
 
-                // 1. Validate
+                // 1. Validate: Kiểm tra rỗng
                 if (string.IsNullOrEmpty(currentPass) || string.IsNullOrEmpty(newPass) || string.IsNullOrEmpty(confirmPass))
                 {
                     MessageBox.Show("Vui lòng nhập đủ thông tin!"); return;
                 }
+                // 2. Validate: Độ dài mật khẩu mới
                 if (newPass.Length < 3)
                 {
                     MessageBox.Show("Mật khẩu mới quá ngắn!"); return;
                 }
+                // 3. Validate: Khớp mật khẩu xác nhận
                 if (newPass != confirmPass)
                 {
                     MessageBox.Show("Mật khẩu xác nhận không khớp!"); return;
                 }
-
-                // 2. Check Pass cũ
+                // 4. Kiểm tra Mật khẩu hiện tại có đúng không (So sánh với Hash trong Session)
                 if (!BCrypt.Net.BCrypt.Verify(currentPass, AuthSession.CurrentUser.PasswordHash))
                 {
                     MessageBox.Show("Mật khẩu hiện tại không đúng!"); return;
                 }
-
-                // 3. Lưu
+                // 5. Mã hóa mật khẩu mới trước khi lưu (Bảo mật)
                 string newHash = BCrypt.Net.BCrypt.HashPassword(newPass);
+                // 6. Gọi Service cập nhật xuống Database
                 await _dbService.ChangePasswordAsync(AuthSession.CurrentUser.UserId, newHash);
-
-                // Update Session
+                // 7. Cập nhật lại thông tin trong Session hiện tại (để không cần đăng nhập lại)
                 AuthSession.CurrentUser.PasswordHash = newHash;
-
                 MessageBox.Show("Đổi mật khẩu thành công!");
+
                 window?.Close();
             }
         }
