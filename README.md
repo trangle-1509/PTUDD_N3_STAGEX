@@ -28,13 +28,15 @@ Dự án được xây dựng dựa trên nền tảng .NET 9 và kiến trúc 3
 - API: ASP.NET Core Web API (cho module soát vé).
 - Cơ sở dữ liệu: MySQL (Sử dụng XAMPP).
 ### Thư viện & Công nghệ nổi bật
-Giao diện & MVVM:
+**Giao diện & MVVM:**
 - CommunityToolkit.Mvvm: Hỗ trợ mô hình MVVM, Messaging, RelayCommand.
 - MahApps.Metro: Giao diện hiện đại (Modern UI).
-Xử lý dữ liệu & Database:
+
+**Xử lý dữ liệu & Database:**
 - Pomelo.EntityFrameworkCore.MySql: ORM tương tác với MySQL.
 - Stored Procedures: Sử dụng triệt để thủ tục lưu trữ trong MySQL để tối ưu hiệu năng truy vấn và báo cáo.
-Tính năng nâng cao:
+
+**Tính năng nâng cao:**
 - LiveCharts.Wpf: Vẽ biểu đồ doanh thu, tỷ lệ lấp đầy.
 - Microsoft.ML (ML.NET): Sử dụng thuật toán SSA (Singular Spectrum Analysis) để dự báo doanh thu.
 - PDFsharp-WPF: Xuất báo cáo và in vé ra file PDF.
@@ -43,33 +45,39 @@ Tính năng nâng cao:
 - MailKit: Gửi email thông báo tài khoản mới.
 - RestSharp: Gọi API VietQR để tạo mã thanh toán chuyển khoản.
 ## Các chức năng chính
-1. Dành cho Quản trị viên (Admin)
-Dashboard (Bảng điều khiển):
+**Dành cho Quản trị viên (Admin)**
+1. Dashboard (Bảng điều khiển):
 - Xem tổng quan doanh thu, số đơn hàng, vé bán.
 - Biểu đồ doanh thu theo tháng (kết hợp đường dự báo từ AI).
 - Biểu đồ tình trạng vé (bán/trống).
 - Top 5 vở diễn bán chạy.
 - Xuất báo cáo PDF.
-Quản lý Rạp & Ghế:
+2. Quản lý Rạp & Ghế:
 - Tạo mới rạp, tùy chỉnh số hàng/cột.
 - Thiết kế sơ đồ ghế trực quan (gán hạng ghế VIP/Thường, tạo lối đi).
 - Quản lý hạng ghế và giá phụ thu.
-Quản lý Vở diễn & Suất diễn:
-- Thêm/Sửa/Xóa vở diễn, thể loại, diễn viên.
-- Lên lịch suất diễn (ngày, giờ, giá vé).
-Quản lý Tài khoản: Tạo tài khoản cho nhân viên, phân quyền, khóa/mở khóa tài khoản.
-2. Dành cho Nhân viên (Staff)
-Bán vé (POS):
+3. Quản lý Vở diễn:
+- Thêm, sửa, xóa thông tin vở diễn (đạo diễn, thời lượng, poster).
+- Phân loại vở diễn và gán danh sách diễn viên tham gia.
+4. Quản lý Suất diễn:
+- Lên lịch biểu diễn (ngày, giờ, rạp) và thiết lập giá vé.
+- Tự động cập nhật trạng thái suất diễn.
+5. Quản lý Thể loại: Tạo và quản lý danh mục thể loại để phân loại các tác phẩm kịch.
+6. Quản lý Diễn viên: Quản lý hồ sơ, thông tin cá nhân và trạng thái hoạt động của nghệ sĩ.
+7. Quản lý Tài khoản: Tạo tài khoản cho nhân viên, phân quyền, khóa/mở khóa tài khoản.
+  
+**Dành cho Nhân viên (Staff)**
+1. Bán vé (POS):
 - Chọn vở diễn, suất chiếu (hỗ trợ chế độ Giờ cao điểm).
 - Chọn ghế trực tiếp trên sơ đồ (hiển thị màu sắc theo hạng và trạng thái).
 - Thanh toán: Tiền mặt (tự tính tiền thừa) hoặc Chuyển khoản (tự sinh mã QR VietQR).
-Quản lý Đơn hàng & In vé:
+2. Quản lý Đơn hàng & In vé:
 - Tra cứu đơn hàng theo mã, tên khách, SĐT.
 - In vé ra file PDF (bao gồm thông tin vé và Barcode kiểm soát).
-Soát vé (Ticket Scanning):
+3. Soát vé (Ticket Scanning):
 - Nhập mã vé hoặc quét barcode để kiểm tra tính hợp lệ.
 - Cập nhật trạng thái vé ("Đã sử dụng") theo thời gian thực.
-Hồ sơ cá nhân: Cập nhật thông tin, đổi mật khẩu.
+4. Hồ sơ cá nhân: Cập nhật thông tin, đổi mật khẩu.
 ## Hướng dẫn Cài đặt & Triển khai
 ### Yêu cầu hệ thống
 Visual Studio 2022 (hoặc mới hơn) hỗ trợ .NET 9.
@@ -89,34 +97,46 @@ Mở file solution StageX.sln bằng Visual Studio.
 Nhấn Start (F5) để chạy ứng dụng.
 Tùy chọn: Để dùng tính năng quét vé qua API, chạy song song project Stagex.Api.
 ### Tài khoản mặc định
-Admin:
-User: Admin
-Pass: 123
-Nhân viên:
-User: staff
-Pass: 123
+**Admin:**
+- User: admin
+- Pass: 12345
+
+**Nhân viên:**
+- User: staff
+- Pass: 12345
 ## Cấu trúc dự án
 Dự án tuân theo mô trúc MVVM và chia tách các tầng rõ ràng:
-1. StageX_DesktopApp: Project chính (WPF).
-Views: Chứa các file .xaml và code-behind giao diện (LoginView, DashboardView, SellTicketView...).
-ViewModels: Xử lý logic nghiệp vụ, cầu nối giữa View và Model (LoginViewModel, MainViewModel...).
-Models: Các lớp ánh xạ bảng CSDL (User, Show, Ticket...) và các lớp DTO.
-Services:
+### StageX_DesktopApp: Project chính (WPF).
+**Views:** Chứa các file .xaml và code-behind giao diện (LoginView, DashboardView, SellTicketView...).
+
+**ViewModels:** Xử lý logic nghiệp vụ, cầu nối giữa View và Model (LoginViewModel, MainViewModel...).
+
+**Models:** Các lớp ánh xạ bảng CSDL (User, Show, Ticket...) và các lớp DTO.
+
+**Services:**
 - DatabaseService.cs: Xử lý truy vấn DB, gọi Stored Procedures.
 - RevenueForecastingService.cs: Logic dự báo doanh thu bằng ML.NET.
 - VietQRService.cs: Tích hợp tạo mã QR.
 - TicketScanService.cs: Gọi API quét vé.
 - SoundManager.cs: Quản lý âm thanh thông báo.
-Utilities: Các converter (BoolToVisibility, MenuConverters) và Helper.
-2. stagex_api: Project Web API (.NET Core) phục vụ chức năng quét vé online.
+
+**Utilities:** Các converter (BoolToVisibility, MenuConverters) và Helper.
+
+### stagex_api:
+Project Web API (.NET Core) phục vụ chức năng quét vé online.
+
 ## Hạn chế và Hướng phát triển
 ### Hạn chế:
 Chưa tích hợp cổng thanh toán online tự động xác thực (IPN), hiện tại nhân viên phải xác nhận thủ công khi khách chuyển khoản.
+
 Chưa quản lý lịch tập của diễn viên và hậu đài.
+
 Chưa hỗ trợ mô hình chuỗi nhiều chi nhánh rạp.
 ### Hướng phát triển:
 Xây dựng Mobile App cho khách hàng đặt vé online.
+
 Tích hợp thanh toán VNPAY/Momo tự động.
+
 Mở rộng module quản lý kho đạo cụ và thiết bị sân khấu.
 ## Lời cảm ơn
 Để hoàn thành tốt đề tài này chúng em xin cảm ơn TS. Nguyễn Mạnh Tuấn. Chúng em xin trân trọng cảm ơn Thầy đã tận tình giúp đỡ, hướng dẫn và định hướng kiến thức chuyên môn cũng như kỹ năng thực tế cho chúng em trong suốt quá trình thực hiện đồ án.
