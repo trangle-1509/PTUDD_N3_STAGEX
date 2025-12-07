@@ -60,6 +60,8 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <!-- Dòng hiển thị thông báo quét vé -->
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -95,8 +97,28 @@
             </Grid>
         </Border>
 
+        <!-- Thông báo kết quả quét -->
+        <TextBlock Grid.Row="2"
+                   Text="{Binding LastMessage}"
+                   FontSize="14"
+                   Margin="0,0,0,10"
+                   HorizontalAlignment="Left">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Style.Triggers>
+                        <!-- Ẩn TextBlock khi không có thông báo -->
+                        <DataTrigger Binding="{Binding LastMessage}" Value="">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
+
         <!-- DATA GRID -->
-        <DataGrid Grid.Row="2"
+        <DataGrid Grid.Row="3"
                   ItemsSource="{Binding UsedTickets}"
                   IsReadOnly="True"
                   AutoGenerateColumns="False"

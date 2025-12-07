@@ -8,6 +8,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using System.Windows.Threading;
+using System.Windows; // for MessageBox
 
 namespace StageX_DesktopApp.ViewModels
 {
@@ -27,6 +28,16 @@ namespace StageX_DesktopApp.ViewModels
         // Danh sách vé đã được soát – load từ DB
         [ObservableProperty]
         private ObservableCollection<Ticket> usedTickets = new();
+
+        // Thông báo kết quả quét cuối cùng (thành công hoặc thất bại).
+        // Thuộc tính này được gán mỗi khi người dùng quét mã.
+        // Nếu rỗng sẽ không hiển thị trên giao diện.
+        private string lastMessage = string.Empty;
+        public string LastMessage
+        {
+            get => lastMessage;
+            set => SetProperty(ref lastMessage, value);
+        }
 
         // Timer tự động làm mới danh sách vé đã soát
         private readonly DispatcherTimer _refreshTimer;
@@ -78,19 +89,21 @@ namespace StageX_DesktopApp.ViewModels
         [RelayCommand]
         private async Task ScanAsync()
         {
+            // Nếu ô nhập trống, không làm gì
             if (string.IsNullOrWhiteSpace(TicketCode))
                 return;
 
             string trimmedCode = TicketCode.Trim();
             string message;
 
-            // Validate mã vé phải là 13 chữ số
+            // Kiểm tra mã vé hợp lệ: phải là 13 chữ số nằm trong khoảng 10^12–10^13−1
             bool isNumeric = long.TryParse(trimmedCode, out long numericCode);
             if (!isNumeric || trimmedCode.Length != 13 ||
                 numericCode < 1000000000000L || numericCode > 9999999999999L)
             {
                 message = $"Mã vé không hợp lệ: {trimmedCode}. Mã vé phải gồm 13 chữ số.";
 
+                // Thêm vào lịch sử quét
                 ScanHistory.Add(new ScanHistoryItem
                 {
                     Timestamp = DateTime.Now,
@@ -98,11 +111,18 @@ namespace StageX_DesktopApp.ViewModels
                     Message = message
                 });
 
+                // Cập nhật thuộc tính hiển thị trên giao diện
+                LastMessage = message;
+
+                // Xóa input để người dùng nhập lại
                 TicketCode = string.Empty;
+
+                // Hiển thị thông báo lỗi cho người dùng
+                ShowResultDialog(message);
                 return;
             }
 
-            // Thử quét qua API → Nếu lỗi thì fallback sang DB local
+            // Gọi API, nếu lỗi thì fallback sang DB cục bộ
             try
             {
                 message = await _scanService.ScanTicketAsync(trimmedCode);
@@ -112,7 +132,7 @@ namespace StageX_DesktopApp.ViewModels
                 message = await ScanTicketLocallyAsync(trimmedCode);
             }
 
-            // Ghi vào lịch sử quét
+            // Thêm vào lịch sử quét
             ScanHistory.Add(new ScanHistoryItem
             {
                 Timestamp = DateTime.Now,
@@ -120,10 +140,58 @@ namespace StageX_DesktopApp.ViewModels
                 Message = message
             });
 
+            // Cập nhật thông báo cuối cùng lên UI
+            LastMessage = message;
+
+            // Xóa ô nhập
             TicketCode = string.Empty;
 
             // Làm mới danh sách vé đã sử dụng
             await LoadUsedTicketsAsync();
+
+            // Hiển thị thông báo cho người dùng (hợp lệ, đã sử dụng hoặc không tìm thấy)
+            ShowResultDialog(message);
+        }
+
+        /// <summary>
+        /// Hiển thị MessageBox tùy theo nội dung kết quả quét. Phải chạy trên Dispatcher để đảm bảo UI thread.
+        /// </summary>
+        /// <param name="message">Thông điệp hiển thị cho người dùng.</param>
+        private void ShowResultDialog(string message)
+        {
+            // Xác định biểu tượng: mặc định Warning
+            MessageBoxImage icon = MessageBoxImage.Warning;
+            string lower = message?.ToLowerInvariant() ?? string.Empty;
+            if (lower.StartsWith("vé hợp lệ"))
+            {
+                icon = MessageBoxImage.Information;
+            }
+            else if (lower.Contains("không tìm thấy") || lower.Contains("không tồn tại"))
+            {
+                icon = MessageBoxImage.Warning;
+            }
+            else if (lower.Contains("đã sử dụng"))
+            {
+                // Vé đã sử dụng cũng dùng biểu tượng thông tin vì không phải lỗi hệ thống
+                icon = MessageBoxImage.Information;
+            }
+            else if (lower.Contains("hủy") || lower.Contains("chưa được xác thực"))
+            {
+                icon = MessageBoxImage.Warning;
+            }
+            else
+            {
+                icon = MessageBoxImage.Error;
+            }
+
+            // Đảm bảo gọi MessageBox trên UI thread
+            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+            {
+                MessageBox.Show(message,
+                                "Kết quả quét",
+                                MessageBoxButton.OK,
+                                icon);
+            });
         }
 
         // Hàm fallback: quét vé trực tiếp bằng DB khi API không hoạt động
