@@ -231,11 +231,11 @@ namespace StageX_DesktopApp.ViewModels
 
                     var item = data.FirstOrDefault(x => x.period == key);
                     double s = item != null ? (double)item.sold_tickets : 0;
-                    double u = item != null ? (double)item.unsold_tickets : 0; // SỬA: Lấy số liệu thật
+                    double u = item != null ? (double)item.unsold_tickets : 0; 
 
                     labels.Add(key);
                     sold.Add(s);
-                    unsold.Add(u); // SỬA: Add biến u
+                    unsold.Add(u); 
                 }
             }
             else // week
@@ -248,11 +248,11 @@ namespace StageX_DesktopApp.ViewModels
 
                     var item = data.FirstOrDefault(x => x.period == key);
                     double s = item != null ? (double)item.sold_tickets : 0;
-                    double u = item != null ? (double)item.unsold_tickets : 0; // SỬA: Lấy số liệu thật
+                    double u = item != null ? (double)item.unsold_tickets : 0; 
 
                     labels.Add(key);
                     sold.Add(s);
-                    unsold.Add(u); // SỬA: Add biến u
+                    unsold.Add(u); 
                 }
             }
 
