@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 07, 2025 at 11:49 AM
+-- Generation Time: Dec 07, 2025 at 12:30 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -2037,9 +2037,9 @@ INSERT INTO `performances` (`performance_id`, `show_id`, `theater_id`, `performa
 (64, 8, 1, '2025-11-29', '19:30:00', '21:30:00', 'Đã kết thúc', 200000, '2025-10-15 10:00:00', '2025-10-15 10:00:00'),
 (65, 14, 2, '2025-11-29', '19:30:00', '21:20:00', 'Đã kết thúc', 150000, '2025-10-15 10:00:00', '2025-10-15 10:00:00'),
 (66, 20, 3, '2025-11-29', '14:00:00', '15:55:00', 'Đã kết thúc', 180000, '2025-10-15 10:00:00', '2025-10-15 10:00:00'),
-(67, 11, 1, '2025-12-05', '19:30:00', '21:50:00', 'Đang mở bán', 200000, '2025-10-25 09:00:00', '2025-10-25 09:00:00'),
-(68, 17, 2, '2025-12-05', '19:30:00', '21:25:00', 'Đang mở bán', 150000, '2025-10-25 09:00:00', '2025-10-25 09:00:00'),
-(69, 13, 3, '2025-12-05', '14:00:00', '15:35:00', 'Đang mở bán', 120000, '2025-10-25 09:00:00', '2025-10-25 09:00:00'),
+(67, 11, 1, '2025-12-05', '19:30:00', '21:50:00', 'Đã kết thúc', 200000, '2025-10-25 09:00:00', '2025-12-07 11:30:19'),
+(68, 17, 2, '2025-12-05', '19:30:00', '21:25:00', 'Đã kết thúc', 150000, '2025-10-25 09:00:00', '2025-12-07 11:30:19'),
+(69, 13, 3, '2025-12-05', '14:00:00', '15:35:00', 'Đã kết thúc', 120000, '2025-10-25 09:00:00', '2025-12-07 11:30:19'),
 (70, 11, 2, '2025-12-15', '19:30:00', '21:50:00', 'Đang mở bán', 200000, '2025-10-25 09:00:00', '2025-10-25 09:00:00'),
 (71, 17, 1, '2025-12-15', '14:00:00', NULL, 'Đã hủy', 150000, '2025-10-25 09:00:00', '2025-12-01 11:48:59'),
 (72, 13, 1, '2025-12-15', '19:30:00', '21:05:00', 'Đang mở bán', 150000, '2025-10-25 09:00:00', '2025-10-25 09:00:00');
@@ -5246,7 +5246,7 @@ INSERT INTO `shows` (`show_id`, `title`, `description`, `duration_minutes`, `dir
 (14, 'Má ơi út dìa', 'Câu chuyện cảm động về tình mẫu tử và nỗi day dứt của người con xa quê. Những ký ức, những tiếng gọi “Má ơi” trở thành sợi dây kết nối quá khứ và hiện tại.', 110, 'Nguyễn Thị Thanh Hương', 'assets/images/ma-oi-ut-dia-poster.png', 'Đã kết thúc', '2025-11-04 12:37:19', '2025-11-30 14:34:45'),
 (15, 'Tía ơi má dìa', 'Một vở kịch hài – tình cảm về những hiểu lầm, giận hờn và yêu thương trong một gia đình miền Tây. Tiếng cười và nước mắt đan xen tạo nên cảm xúc sâu lắng.', 100, 'Trần Hoài Phong', 'assets/images/tia-oi-ma-dia-poster.jpg', 'Đã kết thúc', '2025-11-04 12:40:24', '2025-11-24 07:07:01'),
 (16, 'Đức Thượng Công Tả Quân Lê Văn Duyệt', 'Tái hiện hình tượng vị danh tướng Lê Văn Duyệt – người để lại dấu ấn sâu đậm trong lịch sử và lòng dân Nam Bộ. Một vở diễn lịch sử trang trọng, đầy khí phách.', 130, 'Phạm Hữu Tấn', 'assets/images/duc-thuong-cong-ta-quan-le-van-duyet-poster.jpg', 'Đã kết thúc', '2025-11-04 12:42:26', '2025-11-24 07:07:01'),
-(17, 'Chuyến Đò Định Mệnh', 'Một câu chuyện đầy kịch tính xoay quanh chuyến đò cuối cùng của đời người lái đò, nơi tình yêu, tội lỗi và sự tha thứ gặp nhau trong một đêm giông bão.', 115, 'Vũ Ngọc Dũng', 'assets/images/chuyen-do-dinh-menh-poster.jpg', 'Đang chiếu', '2025-11-04 12:43:35', '2025-11-04 13:43:57'),
+(17, 'Chuyến Đò Định Mệnh', 'Một câu chuyện đầy kịch tính xoay quanh chuyến đò cuối cùng của đời người lái đò, nơi tình yêu, tội lỗi và sự tha thứ gặp nhau trong một đêm giông bão.', 115, 'Vũ Ngọc Dũng', 'assets/images/chuyen-do-dinh-menh-poster.jpg', 'Đã kết thúc', '2025-11-04 12:43:35', '2025-12-07 11:30:19'),
 (18, 'Một Ngày Làm Vua', 'Vở hài kịch xã hội châm biếm về một người bình thường bỗng được trao quyền lực. Từ đó, những tình huống oái oăm, dở khóc dở cười liên tục xảy ra.', 100, 'Nguyễn Hoàng Anh', 'assets/images/mot-ngay-lam-vua-poster.jpg', 'Đã kết thúc', '2025-11-04 12:44:58', '2025-11-22 11:47:10'),
 (19, 'Xóm Vịt Trời', 'Một góc nhìn nhân văn và hài hước về cuộc sống mưu sinh của những người lao động nghèo trong một xóm nhỏ ven sông. Dù khốn khó, họ vẫn giữ niềm tin và tình người.', 105, 'Lê Thị Phương Loan', 'assets/images/xom-vit-troi-poster.jpg', 'Đã kết thúc', '2025-11-04 12:46:05', '2025-11-22 11:47:10'),
 (20, 'Những con ma nhà hát', '“Những Con Ma Nhà Hát” là một câu chuyện rùng rợn nhưng cũng đầy tính châm biếm, xoay quanh những hiện tượng kỳ bí xảy ra tại một nhà hát cũ sắp bị phá bỏ. Khi đoàn kịch mới đến tập luyện, những bóng ma của các diễn viên quá cố bắt đầu xuất hiện, đưa người xem vào hành trình giằng co giữa nghệ thuật, danh vọng và quá khứ bị lãng quên.', 115, 'Nguyễn Khánh Trung', 'assets/images/nhung-con-ma-poster.jpg', 'Đã kết thúc', '2025-11-04 13:19:55', '2025-11-30 14:34:45');
@@ -6403,12 +6403,12 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`user_id`, `email`, `password`, `account_name`, `user_type`, `status`, `is_verified`, `otp_code`, `otp_expires_at`) VALUES
-(1, 'staff@example.com', '$2a$11$jSoyDGEyNSgflwPKbQyA5.wFUNvhqXLQ5rzeoNSbl.YaZZ8ZrpKwm', 'staff', 'Nhân viên', 'hoạt động', 1, NULL, NULL),
+(1, 'staff@example.com', '$2a$11$9BeTi3ebcIhMErqHpJRxweJSqy1xpEtw3ITU00sHOlGuvLJWz011O', 'staff', 'Nhân viên', 'hoạt động', 1, NULL, NULL),
 (2, 'trangltmt1509@gmail.com', '$2y$10$0doy81SVgcSvSwMD/VBK2OGfKf6yIVFEnCmzZYR15PjSq/yGz8p.C', 'trale', 'Khách hàng', 'hoạt động', 1, NULL, NULL),
 (3, 'hoaithunguyen066@gmail.com', '$2y$10$6pjx5wsk.tW3icop/RZjWu0nMUqs61OhljS8NttNHqOxG2yP/sZdK', 'ht1123', 'Khách hàng', 'hoạt động', 1, NULL, NULL),
 (4, 'nguyenthithuytrang2020bd@gmail.com', '$2y$10$qEOSBdHhLThH6gneJ2tki.YIdoFCGM7wsBScXYAZ7sgZpDUIuLKSW', 'nguyenna', 'Khách hàng', 'hoạt động', 1, NULL, NULL),
 (6, 'trangle.31231026559@st.ueh.edu.vn', '$2a$11$eomc40N0cv3Ylmr2AA0tEu5DDSvkAc1BWdYVQLK8181DGbCo.7Hgq', 'trangle', 'Nhân viên', 'hoạt động', 1, NULL, NULL),
-(7, 'admin@example.com', '$2a$11$JTJZtd3qxD9zZ3J9qNPdduuSauAEBc/fQubS7t/Ai8jjDfHe69qbe', 'admin', 'Admin', 'hoạt động', 1, NULL, NULL),
+(7, 'admin@example.com', '$2a$11$4jiWZrbKvrU31h6lLhf8ze7.FYsF1RaHJD8k9EDFnH/2tPk0lSOG2', 'admin', 'Admin', 'hoạt động', 1, NULL, NULL),
 (8, 'minarmy1509@gmail.com', '$2y$10$WmOFFFccY97IjoBtyNQvRufjZLc4MkquHvWOLCSjIn2EIgv.li3my', 'nana', 'Khách hàng', 'hoạt động', 1, NULL, NULL),
 (9, 'nguyenhoaithu2019pm@gmail.com', '$2y$10$QVaUYDI.e5LWa6G6yqBcHOhHkIr8sez1ze2TMGPWYYMVe29/3caka', 'thele', 'Khách hàng', 'hoạt động', 1, NULL, NULL),
 (10, 'thuytrang2020bd@gmail.com', '$2y$10$n5UURYh9PjaT9p/zhnD/XuRgILBxbsonGWch13ztBpOP8hjQm7IoG', 'hieunguyen', 'Khách hàng', 'hoạt động', 1, NULL, NULL),
