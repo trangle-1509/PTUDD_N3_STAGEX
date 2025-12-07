@@ -34,8 +34,6 @@ namespace StageX_DesktopApp.ViewModels
         }
 
         // Command: Hàm được gọi khi nhấn nút "Đăng nhập"
-        // async Task: Xử lý bất đồng bộ để không treo giao diện
-        // parameter: Chính là PasswordBox được truyền từ View
         [RelayCommand]
         private async Task Login(object parameter)
         {

@@ -19,6 +19,7 @@ namespace StageX_DesktopApp.ViewModels
             set => SetProperty(ref _currentView, value);
         }
 
+        // Tiêu đề cửa sổ, sẽ thay đổi linh động để hiển thị tên người đang đăng nhập.
         private string _windowTitle;
         public string WindowTitle
         {
@@ -26,6 +27,8 @@ namespace StageX_DesktopApp.ViewModels
             set => SetProperty(ref _windowTitle, value);
         }
 
+        // Biến kiểm soát việc hiển thị Menu dành cho Admin.
+        // Visibility.Visible: Hiện | Visibility.Collapsed: Ẩn hoàn toàn (không chiếm chỗ).
         private Visibility _adminVisibility = Visibility.Collapsed;
         public Visibility AdminVisibility
         {
@@ -33,6 +36,7 @@ namespace StageX_DesktopApp.ViewModels
             set => SetProperty(ref _adminVisibility, value);
         }
 
+        // Biến kiểm soát việc hiển thị Menu dành cho Nhân viên.
         private Visibility _staffVisibility = Visibility.Collapsed;
         public Visibility StaffVisibility
         {
@@ -40,17 +44,21 @@ namespace StageX_DesktopApp.ViewModels
             set => SetProperty(ref _staffVisibility, value);
         }
 
+        // Lưu tên của menu đang được chọn (VD: "Dashboard", "SellTicket").
+        // Dùng để tô màu (Highlight) nút menu đang active trên giao diện.
         private string _selectedMenu;
         public string SelectedMenu
         {
             get => _selectedMenu;
             set => SetProperty(ref _selectedMenu, value);
         }
+
         public MainViewModel()
         {
             LoadUserInfo();
         }
 
+        // Hàm Xác định ai đang đăng nhập và phân quyền hiển thị.
         private void LoadUserInfo()
         {
             // Lấy User từ AuthSession (đã lưu lúc Login)
@@ -60,11 +68,13 @@ namespace StageX_DesktopApp.ViewModels
                 WindowTitle = "StageX";
                 return;
             }
+
             // Cập nhật tiêu đề cửa sổ
             WindowTitle = $"StageX - Đã đăng nhập: {user.AccountName} ({user.Role})";
             // Phân quyền hiển thị Menu
             if (user.Role == "Admin")
             {
+                // Nếu là Admin: Hiện menu Admin, Ẩn menu Nhân viên.
                 AdminVisibility = Visibility.Visible;
                 StaffVisibility = Visibility.Collapsed;
                 NavigateDashboard();
@@ -76,6 +86,7 @@ namespace StageX_DesktopApp.ViewModels
                 NavigateSellTicket();
             }
         }
+
         // Hàm chung để chuyển trang
         private void NavigateTo(object view, string menuName)
         {
@@ -119,15 +130,19 @@ namespace StageX_DesktopApp.ViewModels
         [RelayCommand]
         private void NavigateProfile() => NavigateTo(new ProfileView(), "Profile");
 
+        // Xử lý Đăng xuất: Xóa session, đóng cửa sổ chính và mở lại màn hình đăng nhập.
         [RelayCommand]
         private void Logout()
         {
             SoundManager.PlayLogout();
+            // Xóa thông tin user trong bộ nhớ tạm
             AuthSession.Logout();
 
+            // Mở lại cửa sổ đăng nhập
             var loginWindow = new LoginView();
             loginWindow.Show();
 
+            // Tìm và đóng cửa sổ chính (MainWindow) hiện tại
             foreach (Window window in Application.Current.Windows)
             {
                 if (window is MainWindow)
