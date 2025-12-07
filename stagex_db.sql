@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 02, 2025 at 06:44 PM
+-- Generation Time: Dec 07, 2025 at 11:49 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -6403,12 +6403,12 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`user_id`, `email`, `password`, `account_name`, `user_type`, `status`, `is_verified`, `otp_code`, `otp_expires_at`) VALUES
-(1, 'staff@example.com', '$2a$11$jSoyDGEyNSgflwPKbQyA5.wFUNvhqXLQ5rzeoNSbl.YaZZ8ZrpKwm', 'thanhminh', 'Nhân viên', 'hoạt động', 1, NULL, NULL),
+(1, 'staff@example.com', '$2a$11$jSoyDGEyNSgflwPKbQyA5.wFUNvhqXLQ5rzeoNSbl.YaZZ8ZrpKwm', 'staff', 'Nhân viên', 'hoạt động', 1, NULL, NULL),
 (2, 'trangltmt1509@gmail.com', '$2y$10$0doy81SVgcSvSwMD/VBK2OGfKf6yIVFEnCmzZYR15PjSq/yGz8p.C', 'trale', 'Khách hàng', 'hoạt động', 1, NULL, NULL),
 (3, 'hoaithunguyen066@gmail.com', '$2y$10$6pjx5wsk.tW3icop/RZjWu0nMUqs61OhljS8NttNHqOxG2yP/sZdK', 'ht1123', 'Khách hàng', 'hoạt động', 1, NULL, NULL),
 (4, 'nguyenthithuytrang2020bd@gmail.com', '$2y$10$qEOSBdHhLThH6gneJ2tki.YIdoFCGM7wsBScXYAZ7sgZpDUIuLKSW', 'nguyenna', 'Khách hàng', 'hoạt động', 1, NULL, NULL),
 (6, 'trangle.31231026559@st.ueh.edu.vn', '$2a$11$eomc40N0cv3Ylmr2AA0tEu5DDSvkAc1BWdYVQLK8181DGbCo.7Hgq', 'trangle', 'Nhân viên', 'hoạt động', 1, NULL, NULL),
-(7, 'admin@example.com', '$2a$11$JTJZtd3qxD9zZ3J9qNPdduuSauAEBc/fQubS7t/Ai8jjDfHe69qbe', 'Admin', 'Admin', 'hoạt động', 1, NULL, NULL),
+(7, 'admin@example.com', '$2a$11$JTJZtd3qxD9zZ3J9qNPdduuSauAEBc/fQubS7t/Ai8jjDfHe69qbe', 'admin', 'Admin', 'hoạt động', 1, NULL, NULL),
 (8, 'minarmy1509@gmail.com', '$2y$10$WmOFFFccY97IjoBtyNQvRufjZLc4MkquHvWOLCSjIn2EIgv.li3my', 'nana', 'Khách hàng', 'hoạt động', 1, NULL, NULL),
 (9, 'nguyenhoaithu2019pm@gmail.com', '$2y$10$QVaUYDI.e5LWa6G6yqBcHOhHkIr8sez1ze2TMGPWYYMVe29/3caka', 'thele', 'Khách hàng', 'hoạt động', 1, NULL, NULL),
 (10, 'thuytrang2020bd@gmail.com', '$2y$10$n5UURYh9PjaT9p/zhnD/XuRgILBxbsonGWch13ztBpOP8hjQm7IoG', 'hieunguyen', 'Khách hàng', 'hoạt động', 1, NULL, NULL),
