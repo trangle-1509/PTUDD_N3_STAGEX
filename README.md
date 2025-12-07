@@ -90,7 +90,7 @@ MySQL Server (khuyên dùng XAMPP/WAMP).
 2. Cấu hình kết nối:
 - Mở file StageX_DesktopApp/Data/AppDbContext.cs (hoặc appsettings.json trong project API).
 - Cập nhật chuỗi kết nối (Connection String) phù hợp với máy cá nhân:
-- "Server=localhost;Database=stagex_db;User=root;Password=;"
+  "Server=localhost;Database=stagex_db;User=root;Password=;"
 3. Chạy ứng dụng:
 - Mở file solution StageX.sln bằng Visual Studio.
 - Đặt StageX_DesktopApp làm Startup Project.
