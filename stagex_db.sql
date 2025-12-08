@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 07, 2025 at 03:01 PM
+-- Generation Time: Dec 08, 2025 at 10:29 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -88,26 +88,30 @@ END$$
 
 CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_chart_last_4_weeks` ()   BEGIN
     SELECT 
-        CONCAT('Tuần ', WEEK(p.performance_date, 1)) as period,
-        SUM(CASE WHEN sp.status != 'trống' THEN 1 ELSE 0 END) as sold_tickets,
-        SUM(CASE WHEN sp.status = 'trống' THEN 1 ELSE 0 END) as unsold_tickets
-    FROM performances p
-    JOIN seat_performance sp ON p.performance_id = sp.performance_id
-    WHERE p.performance_date >= DATE_SUB(NOW(), INTERVAL 4 WEEK)
-    GROUP BY YEAR(p.performance_date), WEEK(p.performance_date, 1)
-    ORDER BY p.performance_date ASC;
+        CONCAT('Tuần ', WEEK(b.created_at, 1)) as period,
+        COUNT(t.ticket_id) as sold_tickets,
+        0 as unsold_tickets -- <--- Thêm cột giả này để khớp code C#
+    FROM bookings b
+    JOIN tickets t ON b.booking_id = t.booking_id
+    JOIN payments p ON b.booking_id = p.booking_id
+    WHERE p.status = 'Thành công'
+      AND b.created_at >= DATE_SUB(NOW(), INTERVAL 4 WEEK)
+    GROUP BY YEAR(b.created_at), WEEK(b.created_at, 1)
+    ORDER BY b.created_at ASC;
 END$$
 
 CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_chart_last_7_days` ()   BEGIN
     SELECT 
-        DATE_FORMAT(p.performance_date, '%d/%m') as period,
-        SUM(CASE WHEN sp.status != 'trống' THEN 1 ELSE 0 END) as sold_tickets,
-        SUM(CASE WHEN sp.status = 'trống' THEN 1 ELSE 0 END) as unsold_tickets
-    FROM performances p
-    JOIN seat_performance sp ON p.performance_id = sp.performance_id
-    WHERE p.performance_date >= DATE(NOW()) - INTERVAL 6 DAY
-    GROUP BY DATE(p.performance_date)
-    ORDER BY p.performance_date ASC;
+        DATE_FORMAT(b.created_at, '%d/%m') as period,
+        COUNT(t.ticket_id) as sold_tickets,
+        0 as unsold_tickets -- <--- Thêm cột giả
+    FROM bookings b
+    JOIN tickets t ON b.booking_id = t.booking_id
+    JOIN payments p ON b.booking_id = p.booking_id
+    WHERE p.status = 'Thành công'
+      AND b.created_at >= DATE(NOW()) - INTERVAL 6 DAY
+    GROUP BY DATE(b.created_at)
+    ORDER BY b.created_at ASC;
 END$$
 
 CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_check_user_exists` (IN `in_email` VARCHAR(255), IN `in_account_name` VARCHAR(255))   BEGIN
@@ -763,13 +767,13 @@ END$$
 
 CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_sold_tickets_yearly` ()   BEGIN
     SELECT 
-        CAST(YEAR(p.performance_date) AS CHAR) as period,
-        SUM(CASE WHEN sp.status != 'trống' THEN 1 ELSE 0 END) as sold_tickets,
-        SUM(CASE WHEN sp.status = 'trống' THEN 1 ELSE 0 END) as unsold_tickets
-    FROM performances p
-    JOIN seat_performance sp ON p.performance_id = sp.performance_id
-    GROUP BY YEAR(p.performance_date)
-    ORDER BY YEAR(p.performance_date);
+        CONVERT(YEAR(t.created_at), CHAR) AS period,
+        COUNT(*) AS sold_tickets,
+        0 as unsold_tickets -- <--- Thêm cột giả
+    FROM tickets t
+    WHERE t.status IN ('Hợp lệ','Đã sử dụng')
+    GROUP BY YEAR(t.created_at)
+    ORDER BY YEAR(t.created_at);
 END$$
 
 CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_top3_nearest_performances` ()   BEGIN
@@ -2189,7 +2193,33 @@ INSERT INTO `seats` (`seat_id`, `theater_id`, `category_id`, `row_char`, `seat_n
 (111, 2, 1, 'A', 8, 8, '2025-11-17 18:58:14'),
 (112, 2, 1, 'B', 8, 8, '2025-11-17 18:58:14'),
 (113, 2, 2, 'C', 8, 8, '2025-11-17 18:58:14'),
-(114, 2, 1, 'D', 8, 8, '2025-11-17 18:58:14');
+(114, 2, 1, 'D', 8, 8, '2025-11-17 18:58:14'),
+(144, 7, 1, 'A', 1, 1, '2025-12-08 09:26:39'),
+(145, 7, 1, 'A', 2, 2, '2025-12-08 09:26:40'),
+(146, 7, 1, 'A', 4, 3, '2025-12-08 09:26:40'),
+(147, 7, 1, 'A', 5, 4, '2025-12-08 09:26:40'),
+(148, 7, 1, 'B', 1, 1, '2025-12-08 09:26:40'),
+(149, 7, 1, 'B', 2, 2, '2025-12-08 09:26:40'),
+(150, 7, 1, 'B', 4, 3, '2025-12-08 09:26:40'),
+(151, 7, 1, 'B', 5, 4, '2025-12-08 09:26:40'),
+(152, 7, 12, 'C', 1, 1, '2025-12-08 09:26:40'),
+(153, 7, 12, 'C', 2, 2, '2025-12-08 09:26:40'),
+(154, 7, 12, 'C', 4, 3, '2025-12-08 09:26:40'),
+(155, 7, 12, 'C', 5, 4, '2025-12-08 09:26:40'),
+(156, 7, 12, 'D', 1, 1, '2025-12-08 09:26:40'),
+(157, 7, 12, 'D', 2, 2, '2025-12-08 09:26:40'),
+(158, 7, 12, 'D', 4, 3, '2025-12-08 09:26:40'),
+(159, 7, 12, 'D', 5, 4, '2025-12-08 09:26:40'),
+(160, 7, 3, 'E', 1, 1, '2025-12-08 09:26:40'),
+(161, 7, 3, 'E', 2, 2, '2025-12-08 09:26:40'),
+(162, 7, 3, 'E', 3, 3, '2025-12-08 09:26:40'),
+(163, 7, 3, 'E', 4, 4, '2025-12-08 09:26:40'),
+(164, 7, 3, 'E', 5, 5, '2025-12-08 09:26:40'),
+(165, 7, 3, 'F', 1, 1, '2025-12-08 09:26:40'),
+(166, 7, 3, 'F', 2, 2, '2025-12-08 09:26:40'),
+(167, 7, 3, 'F', 3, 3, '2025-12-08 09:26:40'),
+(168, 7, 3, 'F', 4, 4, '2025-12-08 09:26:40'),
+(169, 7, 3, 'F', 5, 5, '2025-12-08 09:26:40');
 
 -- --------------------------------------------------------
 
@@ -2212,8 +2242,8 @@ INSERT INTO `seat_categories` (`category_id`, `category_name`, `base_price`, `co
 (1, 'A', 150000, '0d6efd'),
 (2, 'B', 75000, '198754'),
 (3, 'C', 0, '6f42c1'),
-(6, 'D', 50000, '27ae60'),
-(7, 'E', 45000, '2980B9');
+(11, 'D', 100000, 'C5D049'),
+(12, 'E', 80000, '87F927');
 
 -- --------------------------------------------------------
 
@@ -5379,7 +5409,8 @@ CREATE TABLE `theaters` (
 INSERT INTO `theaters` (`theater_id`, `name`, `total_seats`, `created_at`, `status`) VALUES
 (1, 'Main Hall', 52, '2025-10-03 16:14:11', 'Đã hoạt động'),
 (2, 'Black Box', 32, '2025-10-03 16:14:22', 'Đã hoạt động'),
-(3, 'Studio', 30, '2025-10-03 16:14:32', 'Đã hoạt động');
+(3, 'Studio', 30, '2025-10-03 16:14:32', 'Đã hoạt động'),
+(7, 'Big Boom', 26, '2025-12-08 09:26:39', 'Đã hoạt động');
 
 -- --------------------------------------------------------
 
@@ -6606,13 +6637,13 @@ ALTER TABLE `reviews`
 -- AUTO_INCREMENT for table `seats`
 --
 ALTER TABLE `seats`
-  MODIFY `seat_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=144;
+  MODIFY `seat_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=170;
 
 --
 -- AUTO_INCREMENT for table `seat_categories`
 --
 ALTER TABLE `seat_categories`
-  MODIFY `category_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `category_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- AUTO_INCREMENT for table `shows`
@@ -6624,7 +6655,7 @@ ALTER TABLE `shows`
 -- AUTO_INCREMENT for table `theaters`
 --
 ALTER TABLE `theaters`
-  MODIFY `theater_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `theater_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `tickets`
