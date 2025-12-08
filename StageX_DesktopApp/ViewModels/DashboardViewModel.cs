@@ -189,8 +189,8 @@ namespace StageX_DesktopApp.ViewModels
             var unsold = new ChartValues<double>();
             var labels = new List<string>();
 
-            // Giả lập mốc thời gian hiện tại
-            var anchorDate = new DateTime(2025, 11, 30);
+            // Lấy thời gian hiện tại
+            var anchorDate = DateTime.Now;
             var culture = System.Globalization.CultureInfo.InvariantCulture;
 
             // Xử lý logic hiển thị trục hoành tùy theo loại lọc
@@ -260,7 +260,7 @@ namespace StageX_DesktopApp.ViewModels
             var topShows = await _dbService.GetTopShowsAsync(start, end);
             var series = new SeriesCollection();
 
-            // Duyệt qua từng vở diễn để tạo các lát cắt (Slice)
+            // Duyệt qua từng vở diễn để tạo các lát cắt
             foreach (var show in topShows)
             {
                 // Tạo từng PieSeries cho mỗi vở diễn
