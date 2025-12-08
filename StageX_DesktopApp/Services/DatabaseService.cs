@@ -33,9 +33,10 @@ namespace StageX_DesktopApp.Services
         {
             using (var context = new AppDbContext())
             {
-                // Gọi SP: proc_get_admin_staff_users
                 return await context.Users
-                    .FromSqlRaw("CALL proc_get_admin_staff_users()")
+                    .Include(u => u.UserDetail)
+                    .Where(u => u.Role == "Nhân viên" || u.Role == "Admin")
+                    .OrderBy(u => u.UserId)
                     .ToListAsync();
             }
         }
@@ -61,8 +62,10 @@ namespace StageX_DesktopApp.Services
             {
                 if (user.UserId > 0)
                 {
-                    // Cập nhật
-                    var dbUser = await context.Users.FindAsync(user.UserId);
+                    var dbUser = await context.Users
+                        .Include(u => u.UserDetail)
+                        .FirstOrDefaultAsync(u => u.UserId == user.UserId);
+
                     if (dbUser != null)
                     {
                         dbUser.AccountName = user.AccountName;
@@ -70,11 +73,18 @@ namespace StageX_DesktopApp.Services
                         dbUser.Role = user.Role;
                         dbUser.Status = user.Status;
                         if (isUpdatePassword) dbUser.PasswordHash = user.PasswordHash;
+
+                        // Xử lý lưu Họ tên vào bảng con
+                        if (dbUser.UserDetail == null)
+                        {
+                            dbUser.UserDetail = new UserDetail { UserId = dbUser.UserId };
+                        }
+                        // Cập nhật họ tên mới từ ViewModel gửi xuống
+                        dbUser.UserDetail.FullName = user.UserDetail.FullName;
                     }
                 }
                 else
                 {
-                    // Thêm mới 
                     context.Users.Add(user);
                 }
                 await context.SaveChangesAsync();

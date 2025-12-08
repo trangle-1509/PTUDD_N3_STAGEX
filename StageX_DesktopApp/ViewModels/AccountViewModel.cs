@@ -25,6 +25,7 @@ namespace StageX_DesktopApp.ViewModels
         // --- CÁC BIẾN BINDING CHO FORM NHẬP LIỆU ---
         [ObservableProperty] private int _userId; // ID = 0 là thêm mới, > 0 là sửa
         [ObservableProperty] private string _accountName;
+        [ObservableProperty] private string _fullName;
         [ObservableProperty] private string _email;
         [ObservableProperty] private int _roleIndex = -1;   // Index cho ComboBox Vai trò: 0=Nhân viên, 1=Admin, -1=Chưa chọn
         [ObservableProperty] private int _statusIndex = 0;  // Index cho ComboBox Trạng thái: 0=Hoạt động, 1=Khóa
@@ -63,6 +64,7 @@ namespace StageX_DesktopApp.ViewModels
             UserId = user.UserId;
             AccountName = user.AccountName;
             Email = user.Email;
+            FullName = user.UserDetail?.FullName;
 
             // Map chuỗi Role/Status từ DB sang index của ComboBox
             RoleIndex = (user.Role == "Admin") ? 1 : 0;
@@ -87,6 +89,7 @@ namespace StageX_DesktopApp.ViewModels
             Email = "";
             RoleIndex = -1;
             StatusIndex = 0;
+            FullName = "";
 
             // Cấu hình lại quyền nhập liệu
             IsStatusEnabled = false; // Mới tạo thì mặc định là 'Hoạt động', không cho chọn 'Khóa'
@@ -106,7 +109,7 @@ namespace StageX_DesktopApp.ViewModels
             string status = StatusIndex == 1 ? "khóa" : "hoạt động";
 
             // 1. Validate: Kiểm tra các trường bắt buộc
-            if (string.IsNullOrEmpty(AccountName) || string.IsNullOrEmpty(Email) || RoleIndex == -1)
+            if (string.IsNullOrEmpty(AccountName) || string.IsNullOrEmpty(Email) || string.IsNullOrEmpty(FullName) || RoleIndex == -1)
             {
                 MessageBox.Show("Vui lòng nhập đủ thông tin!");
                 return;
@@ -129,7 +132,12 @@ namespace StageX_DesktopApp.ViewModels
                     Email = Email,
                     Role = role,
                     Status = status,
-                    IsVerified = true // Mặc định đã xác thực (vì admin tạo)
+                    IsVerified = true, // Mặc định đã xác thực (vì admin tạo)
+                    UserDetail = new UserDetail
+                    {
+                        UserId = UserId,
+                        FullName = FullName
+                    }
                 };
 
                 bool isUpdatePass = false; // Cờ đánh dấu có đổi mật khẩu không

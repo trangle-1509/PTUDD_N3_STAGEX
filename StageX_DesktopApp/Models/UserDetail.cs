@@ -11,7 +11,7 @@ namespace StageX_DesktopApp.Models
         [Column("user_id")]
         public int UserId { get; set; }
         [Column("full_name")]
-        public string? FullName { get; set; }
+        public string FullName { get; set; }
         [Column("date_of_birth")]
         public DateTime? DateOfBirth { get; set; }
         [Column("address")]

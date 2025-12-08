@@ -13,6 +13,8 @@ namespace StageX_DesktopApp.ViewModels
     public partial class ProfileViewModel : ObservableObject
     {
         private readonly DatabaseService _dbService;
+
+        private (string Name, string Address, string Phone, DateTime? Dob) _originalState;
         // --- CÁC BIẾN HIỂN THỊ (READ-ONLY) ---
         // Tên tài khoản và Email lấy từ bảng Users, chỉ hiển thị, không sửa ở form này
         [ObservableProperty] private string _accountName = "Loading...";
@@ -55,17 +57,38 @@ namespace StageX_DesktopApp.ViewModels
                 // Nếu ngày sinh null thì lấy ngày hiện tại
                 DateOfBirth = user.UserDetail.DateOfBirth ?? DateTime.Now;
             }
+            _originalState = (FullName, Address, Phone, DateOfBirth);
         }
         // Command: Lưu thông tin chi tiết
         [RelayCommand]
         private async Task SaveInfo()
         {
-            if (AuthSession.CurrentUser == null) return;
+            // 1. [CHECK] Bắt buộc nhập tên
+            if (string.IsNullOrWhiteSpace(FullName))
+            {
+                MessageBox.Show("Vui lòng nhập Họ tên!", "Nhắc nhở", MessageBoxButton.OK, MessageBoxImage.Warning);
+                FullName = _originalState.Name;
+                return;
+            }
+
+            // 2. [CHECK] Kiểm tra có thay đổi không? (So sánh với _originalState)
+            bool isChanged = FullName != _originalState.Name ||
+                             Address != _originalState.Address ||
+                             Phone != _originalState.Phone ||
+                             DateOfBirth.Date != _originalState.Dob?.Date;
+
+            // Nếu không có gì thay đổi -> Dừng luôn (Không hiện thông báo gì cả)
+            if (!isChanged) return;
+
+            // 3. Có thay đổi -> Thực hiện Lưu
             try
             {
-                // Gọi Service để lưu hoặc cập nhật (Upsert) vào bảng user_detail
                 await _dbService.SaveUserDetailAsync(AuthSession.CurrentUser.UserId, FullName, Address, Phone, DateOfBirth);
-                MessageBox.Show("Cập nhật hồ sơ thành công!");
+
+                MessageBox.Show("Cập nhật thành công!");
+
+                // Lưu lại trạng thái mới để lần bấm tiếp theo không báo nữa
+                _originalState = (FullName, Address, Phone, DateOfBirth);
             }
             catch (Exception ex)
             {

@@ -76,12 +76,18 @@
             <!--Tạo hàng đầu gồm tên các cột dữ liệu -->
             <DataGrid.Columns>
                 <DataGridTextColumn Header="MÃ ĐƠN" Binding="{Binding BookingId}" Width="80" FontWeight="Bold" ElementStyle="{StaticResource CenterCell}"/>
-                <DataGridTextColumn Header="KHÁCH HÀNG" Binding="{Binding CustomerName}" Width="1.2*" ElementStyle="{StaticResource LeftCell}"/>
-                <DataGridTextColumn Header="NGƯỜI LẬP" Binding="{Binding CreatorName}" Width="1.2*" ElementStyle="{StaticResource LeftCell}"/>
-                <DataGridTextColumn Header="VỞ DIỄN" Binding="{Binding ShowTitle}" Width="1.5*" ElementStyle="{StaticResource LeftCell}"/>
+                <DataGridTextColumn Header="KHÁCH HÀNG" Binding="{Binding CustomerName}" Width="1.5*" ElementStyle="{StaticResource LeftCell}"/>
+                <DataGridTextColumn Header="NGƯỜI LẬP" Binding="{Binding CreatorName}" Width="1.5*" ElementStyle="{StaticResource LeftCell}"/>
+                <DataGridTemplateColumn Header="VỞ DIỄN" Width="1.5*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding ShowTitle}" TextTrimming="CharacterEllipsis" ToolTip="{Binding ShowTitle}" Style="{StaticResource LeftCell}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTextColumn Header="SUẤT DIỄN" Binding="{Binding PerformanceTime, StringFormat='dd/MM/yyyy HH:mm'}" Width="140" ElementStyle="{StaticResource CenterCell}"/>
 
-                <DataGridTemplateColumn Header="GHẾ" Width="1.5*">
+                <DataGridTemplateColumn Header="GHẾ" Width="0.8*">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding SeatList}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SeatList}" Style="{StaticResource LeftCell}"/>
