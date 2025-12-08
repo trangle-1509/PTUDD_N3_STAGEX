@@ -54,6 +54,8 @@ namespace StageX_DesktopApp.ViewModels
             FullName = actor.FullName;
             NickName = actor.NickName;
             DateOfBirth = actor.DateOfBirth;
+            Phone = actor.Phone;
+            Email = actor.Email;
 
             // Map chuỗi trạng thái từ DB sang index ComboBox
             StatusIndex = (actor.Status == "Ngừng hoạt động") ? 1 : 0;
@@ -77,6 +79,7 @@ namespace StageX_DesktopApp.ViewModels
             NickName = ""; DateOfBirth = null;
             StatusIndex = 0; GenderIndex = 0;
             SaveButtonContent = "Lưu Diễn viên";
+            Phone = null;
         }
 
         // Command: Lưu diễn viên (Xử lý cả Thêm mới và Cập nhật)

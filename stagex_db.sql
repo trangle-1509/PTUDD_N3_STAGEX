@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 08, 2025 at 07:52 PM
+-- Generation Time: Dec 08, 2025 at 08:20 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -435,16 +435,16 @@ CREATE TABLE `actors` (
 --
 
 INSERT INTO `actors` (`actor_id`, `full_name`, `date_of_birth`, `gender`, `nick_name`, `email`, `phone`, `status`, `created_at`) VALUES
-(1, 'Thành Lộc', '0000-00-00', 'Nam', 'Phù thủy sân khấu', 'locthanh1203@gmail.com', '0775587366', 'Hoạt động', '2025-11-22 14:30:58'),
-(2, 'Hữu Châu', '0000-00-00', 'Nam', NULL, 'chauhuu@work.com', '0912319214', 'Hoạt động', '2025-11-22 14:30:58'),
+(1, 'Thành Lộc', '1989-05-02', 'Nam', 'Phù thủy sân khấu', 'locthanh1203@gmail.com', '0775587366', 'Hoạt động', '2025-11-22 14:30:58'),
+(2, 'Hữu Châu', '1989-05-05', 'Nam', NULL, 'chauhuu@work.com', '0912319214', 'Hoạt động', '2025-11-22 14:30:58'),
 (3, 'Hồng Vân', '1987-11-02', 'Nữ', 'NSND Hồng Vân', 'vanht@gmail.com', '0927341231', 'Hoạt động', '2025-11-22 14:30:58'),
 (4, 'Hoài Linh', '1987-02-04', 'Nam', 'Sáu Bảnh', NULL, '0924125387', 'Hoạt động', '2025-11-22 14:30:58'),
-(5, 'Trấn Thành', '0000-00-00', NULL, 'A Xìn', 'tranthanh.work@gmail.com', '0734125679', 'Hoạt động', '2025-11-22 14:30:58'),
-(6, 'Thu Trang', '0000-00-00', 'Nữ', 'Hoa hậu hài', NULL, '0124578126', 'Hoạt động', '2025-11-22 14:30:58'),
+(5, 'Trấn Thành', '1989-05-02', 'Nam', 'A Xìn', 'haitrieu@gmail.com', '0934571238', 'Hoạt động', '2025-11-22 14:30:58'),
+(6, 'Thu Trang', '1990-02-02', 'Nữ', 'Hoa hậu hài', NULL, '0124578126', 'Hoạt động', '2025-11-22 14:30:58'),
 (7, 'Tiến Luật', '1990-09-03', 'Nam', NULL, 'tienluat@gmail.com', '0234571936', 'Hoạt động', '2025-11-22 14:30:58'),
-(8, 'Diệu Nhi', '0000-00-00', 'Nữ', NULL, 'dieunhi125@gmail.com', NULL, 'Hoạt động', '2025-11-22 14:30:58'),
-(9, 'Minh Dự', '1997-09-12', NULL, 'Thánh chửi', 'dumtn.work@gmail.com', '023198765', 'Hoạt động', '2025-11-22 14:30:58'),
-(10, 'Hải Triều', '1997-01-08', 'Nam', 'Lụa', NULL, '0987524671', 'Hoạt động', '2025-11-22 14:30:58');
+(8, 'Diệu Nhi', '1998-03-01', 'Nữ', NULL, NULL, '0923187685', 'Hoạt động', '2025-11-22 14:30:58'),
+(9, 'Minh Dự', '1997-09-12', 'Nam', 'Thánh chửi', 'haitrieu@gmail.com', '0917235345', 'Hoạt động', '2025-11-22 14:30:58'),
+(10, 'Hải Triều', '1997-01-08', 'Nam', 'Lụa', 'haitrieu@gmail.com', '0917235624', 'Hoạt động', '2025-11-22 14:30:58');
 
 -- --------------------------------------------------------
 
