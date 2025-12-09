@@ -138,22 +138,25 @@ namespace StageX_DesktopApp.ViewModels
         private async Task LoadPerformances()
         {
             int tId = SelectedFilterTheater?.TheaterId ?? 0;
+
+            // 1. Lấy danh sách từ DB (Lúc này ShowTitle và TheaterName đang rỗng do [NotMapped])
             var list = await _dbService.GetPerformancesAsync(SearchShowName, tId, SelectedFilterDate);
 
+            // 2. Điền thông tin hiển thị từ dữ liệu đã có trong Ram (ShowsList, TheatersList)
             foreach (var p in list)
             {
+                // Lấy tên Vở diễn
+                var show = ShowsList.FirstOrDefault(s => s.ShowId == p.ShowId);
+                p.ShowTitle = show?.Title ?? "---";
+                p.Show = show; // Gán object để dùng cho nút Sửa
 
-                var showObj = ShowsList.FirstOrDefault(s => s.ShowId == p.ShowId);
-                p.ShowTitle = showObj?.Title ?? "Không xác định"; // Gán tên vở
-
-                var theaterObj = TheatersList.FirstOrDefault(t => t.TheaterId == p.TheaterId);
-                p.TheaterName = theaterObj?.Name ?? "Không xác định"; // Gán tên rạp
-
-                p.Show = showObj;
-                p.Theater = theaterObj;
+                // Lấy tên Rạp
+                var theater = TheatersList.FirstOrDefault(t => t.TheaterId == p.TheaterId);
+                p.TheaterName = theater?.Name ?? "---";
+                p.Theater = theater; // Gán object để dùng cho nút Sửa
             }
-            // --------------------
 
+            // 3. Hiển thị lên giao diện
             Performances = new ObservableCollection<Performance>(list);
         }
 

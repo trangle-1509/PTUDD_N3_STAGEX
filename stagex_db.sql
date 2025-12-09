@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 08, 2025 at 08:20 PM
+-- Generation Time: Dec 09, 2025 at 12:46 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -247,37 +247,20 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_save_genre` (IN `in_id` INT, I
     END IF;
 END$$
 
-CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_search_performances_optimized` (IN `in_show_keyword` VARCHAR(255), IN `in_theater_id` INT, IN `in_date` DATE)   BEGIN
-    -- 1. Cập nhật trạng thái tự động
-    CALL proc_update_statuses();
-
-    -- 2. Truy vấn dữ liệu gộp
+CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_search_performances_optimized` (IN `p_keyword` NVARCHAR(255), IN `p_theater_id` INT, IN `p_date` DATE)   BEGIN
+    -- Sửa lại: JOIN thêm bảng shows và theaters để lấy tên
     SELECT 
-        p.performance_id,
-        p.show_id,
-        p.theater_id,
-        p.performance_date,
-        p.start_time,
-        p.end_time,
-        p.price,
-        p.status,
-        -- Lấy các cột hiển thị (Mapping ảo)
-        s.title AS ShowTitle,
-        t.name AS TheaterName,
-        -- Tính toán HasBookings ngay tại đây (trả về 1 là True, 0 là False)
-        CASE 
-            WHEN EXISTS (SELECT 1 FROM bookings b WHERE b.performance_id = p.performance_id) THEN 1 
-            ELSE 0 
-        END AS HasBookings
+        p.*, 
+        s.title AS ShowTitle,      -- Map thẳng vào thuộc tính ShowTitle trong C#
+        t.name AS TheaterName      -- Map thẳng vào thuộc tính TheaterName trong C#
     FROM performances p
     JOIN shows s ON p.show_id = s.show_id
     JOIN theaters t ON p.theater_id = t.theater_id
     WHERE 
-        -- Logic tìm kiếm
-        (in_show_keyword IS NULL OR in_show_keyword = '' OR s.title LIKE CONCAT('%', in_show_keyword, '%'))
-        AND (in_theater_id = 0 OR p.theater_id = in_theater_id)
-        AND (in_date IS NULL OR p.performance_date = in_date)
-    ORDER BY p.performance_date DESC, p.start_time DESC;
+        (p_keyword IS NULL OR p_keyword = '' OR s.title LIKE CONCAT('%', p_keyword, '%'))
+        AND (p_theater_id = 0 OR p.theater_id = p_theater_id)
+        AND (p_date IS NULL OR DATE(p.performance_date) = p_date)
+    ORDER BY p.performance_date DESC, p.start_time ASC;
 END$$
 
 CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_seats_with_status` (IN `in_performance_id` INT)   BEGIN
@@ -428,7 +411,7 @@ CREATE TABLE `actors` (
   `phone` varchar(20) DEFAULT NULL,
   `status` enum('Hoạt động','Ngừng hoạt động') NOT NULL DEFAULT 'Hoạt động',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 --
 -- Dumping data for table `actors`
@@ -4867,7 +4850,7 @@ CREATE TABLE `shows` (
   `status` enum('Sắp chiếu','Đang chiếu','Đã kết thúc') NOT NULL DEFAULT 'Sắp chiếu',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 --
 -- Dumping data for table `shows`
