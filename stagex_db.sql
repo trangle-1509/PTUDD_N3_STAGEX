@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 09, 2025 at 03:59 PM
+-- Generation Time: Dec 10, 2025 at 04:28 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -92,60 +92,79 @@ END$$
 
 CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_create_ticket` (IN `p_booking_id` INT, IN `p_seat_id` INT)   BEGIN
     DECLARE v_performance_id INT;
-    DECLARE v_current_status VARCHAR(20);
     DECLARE v_new_code BIGINT;
     DECLARE v_exists INT DEFAULT 1;
 
-    -- 1. Bắt đầu Transaction để đảm bảo tính nguyên vẹn
-    START TRANSACTION;
+    -- Vòng lặp sinh mã để đảm bảo không trùng
+    WHILE v_exists > 0 DO
+        -- Sinh số ngẫu nhiên 13 chữ số
+        SET v_new_code = FLOOR(1000000000000 + RAND() * 8999999999999);
+        
+        -- Kiểm tra xem mã này đã tồn tại chưa
+        SELECT COUNT(*) INTO v_exists FROM tickets WHERE ticket_code = v_new_code;
+    END WHILE;
 
-    -- Lấy ID suất diễn từ Booking
+    -- Thêm vé mới
+    INSERT INTO tickets (booking_id, seat_id, ticket_code, status, created_at)
+    VALUES (p_booking_id, p_seat_id, v_new_code, 'Hơp lệ', NOW());
+
+    -- Cập nhật trạng thái ghế trong bảng seat_performance
     SELECT performance_id INTO v_performance_id
     FROM bookings
     WHERE booking_id = p_booking_id;
 
-    -- 2. [QUAN TRỌNG] Kiểm tra trạng thái ghế và KHÓA DÒNG ĐÓ LẠI
-    -- Lệnh "FOR UPDATE" sẽ khóa dòng dữ liệu này. 
-    -- Nếu có một transaction khác đang đọc dòng này, nó sẽ phải chờ transaction này xong.
-    SELECT status INTO v_current_status
-    FROM seat_performance
-    WHERE seat_id = p_seat_id AND performance_id = v_performance_id
-    FOR UPDATE;
-
-    -- 3. Kiểm tra logic: Nếu ghế không còn trống -> Hủy và Báo lỗi ngay
-    IF v_current_status <> 'trống' THEN
-        ROLLBACK; -- Hoàn tác mọi thay đổi
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'LỖI: Ghế này vừa được người khác đặt!';
-    ELSE
-        -- 4. Nếu ghế trống, tiến hành sinh mã vé (giữ nguyên logic cũ của bạn)
-        WHILE v_exists > 0 DO
-            SET v_new_code = FLOOR(1000000000000 + RAND() * 8999999999999);
-            SELECT COUNT(*) INTO v_exists FROM tickets WHERE ticket_code = v_new_code;
-        END WHILE;
-
-        -- Thêm vé mới
-        INSERT INTO tickets (booking_id, seat_id, ticket_code, status, created_at)
-        VALUES (p_booking_id, p_seat_id, v_new_code, 'Hợp lệ', NOW());
-
-        -- Cập nhật trạng thái ghế thành 'đã đặt'
+    IF v_performance_id IS NOT NULL THEN
         UPDATE seat_performance
         SET status = 'đã đặt'
-        WHERE seat_id = p_seat_id AND performance_id = v_performance_id;
-
-        -- 5. Xác nhận thành công (Lưu thay đổi)
-        COMMIT;
-        
-        -- Trả về mã vé
-        SELECT v_new_code AS new_ticket_code;
+        WHERE seat_id = p_seat_id
+          AND performance_id = v_performance_id;
     END IF;
-
+    
+    -- Trả về mã vé vừa tạo (nếu cần dùng ngay)
+    SELECT v_new_code AS new_ticket_code;
 END$$
 
-CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_dashboard_summary` ()   BEGIN
+CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_dashboard_summary` (IN `p_start` DATETIME, IN `p_end` DATETIME)   BEGIN
     SELECT 
-        (SELECT COALESCE(SUM(total_amount), 0) FROM bookings b JOIN payments p ON b.booking_id = p.booking_id WHERE p.status = 'Thành công') as total_revenue,
-        (SELECT COUNT(*) FROM bookings) as total_bookings,
+        -- 1. Tính tổng doanh thu trong khoảng thời gian
+        (
+            SELECT COALESCE(SUM(b.total_amount), 0) 
+            FROM bookings b 
+            JOIN payments p ON b.booking_id = p.booking_id 
+            WHERE p.status = 'Thành công'
+            AND (p_start IS NULL OR b.created_at >= p_start)
+            AND (p_end IS NULL OR b.created_at <= p_end)
+        ) as total_revenue,
+        
+        -- 2. Đếm tổng đơn hàng trong khoảng thời gian
+        (
+            SELECT COUNT(*) 
+            FROM bookings 
+            WHERE (p_start IS NULL OR created_at >= p_start)
+            AND (p_end IS NULL OR created_at <= p_end)
+        ) as total_bookings,
+        
+        -- 3. Tổng số vở diễn (Giữ nguyên tổng số trong hệ thống)
+        (SELECT COUNT(*) FROM shows) as total_shows,
+        
+        -- 4. Tổng số thể loại (Giữ nguyên)
+        (SELECT COUNT(*) FROM genres) as total_genres;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_dashboard_summary_by_date` (IN `p_start` DATETIME, IN `p_end` DATETIME)   BEGIN
+    SELECT 
+        (SELECT COALESCE(SUM(total_amount), 0) 
+         FROM bookings b 
+         JOIN payments p ON b.booking_id = p.booking_id 
+         WHERE p.status = 'Thành công' 
+           AND (p_start IS NULL OR b.created_at >= p_start) 
+           AND (p_end IS NULL OR b.created_at <= p_end)) as total_revenue,
+           
+        (SELECT COUNT(*) 
+         FROM bookings b
+         WHERE (p_start IS NULL OR b.created_at >= p_start) 
+           AND (p_end IS NULL OR b.created_at <= p_end)) as total_bookings,
+           
         (SELECT COUNT(*) FROM shows) as total_shows,
         (SELECT COUNT(*) FROM genres) as total_genres;
 END$$
@@ -232,6 +251,19 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_performances_by_show` (IN `in_
       AND status = 'Đang mở bán';
 END$$
 
+CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_revenue_by_date_range` (IN `p_start` DATETIME, IN `p_end` DATETIME)   BEGIN
+    SELECT 
+        DATE_FORMAT(b.created_at, '%d/%m/%Y') as period, 
+        COALESCE(SUM(b.total_amount), 0) as total_revenue
+    FROM bookings b
+    JOIN payments p ON b.booking_id = p.booking_id
+    WHERE p.status = 'Thành công'
+      AND (p_start IS NULL OR b.created_at >= p_start) 
+      AND (p_end IS NULL OR b.created_at <= p_end)
+    GROUP BY DATE(b.created_at)
+    ORDER BY b.created_at ASC;
+END$$
+
 CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_revenue_monthly` ()   BEGIN
     SELECT 
         DATE_FORMAT(b.created_at, '%m/%Y') as month, 
@@ -265,31 +297,49 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_save_genre` (IN `in_id` INT, I
     END IF;
 END$$
 
-CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_search_performances_optimized` (IN `p_keyword` NVARCHAR(255), IN `p_theater_id` INT, IN `p_date` DATE)   BEGIN
-    -- Sửa lại: JOIN thêm bảng shows và theaters để lấy tên
+CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_search_performances_optimized` (IN `in_show_keyword` VARCHAR(255), IN `in_theater_id` INT, IN `in_date` DATE)   BEGIN
+    -- 1. Cập nhật trạng thái tự động
+    CALL proc_update_statuses();
+
+    -- 2. Truy vấn dữ liệu gộp
     SELECT 
-        p.*, 
-        s.title AS ShowTitle,      -- Map thẳng vào thuộc tính ShowTitle trong C#
-        t.name AS TheaterName      -- Map thẳng vào thuộc tính TheaterName trong C#
+        p.performance_id,
+        p.show_id,
+        p.theater_id,
+        p.performance_date,
+        p.start_time,
+        p.end_time,
+        p.price,
+        p.status,
+        -- Lấy các cột hiển thị (Mapping ảo)
+        s.title AS ShowTitle,
+        t.name AS TheaterName,
+        -- Tính toán HasBookings ngay tại đây (trả về 1 là True, 0 là False)
+        CASE 
+            WHEN EXISTS (SELECT 1 FROM bookings b WHERE b.performance_id = p.performance_id) THEN 1 
+            ELSE 0 
+        END AS HasBookings
     FROM performances p
     JOIN shows s ON p.show_id = s.show_id
     JOIN theaters t ON p.theater_id = t.theater_id
     WHERE 
-        (p_keyword IS NULL OR p_keyword = '' OR s.title LIKE CONCAT('%', p_keyword, '%'))
-        AND (p_theater_id = 0 OR p.theater_id = p_theater_id)
-        AND (p_date IS NULL OR DATE(p.performance_date) = p_date)
-    ORDER BY p.performance_date DESC, p.start_time ASC;
+        -- Logic tìm kiếm
+        (in_show_keyword IS NULL OR in_show_keyword = '' OR s.title LIKE CONCAT('%', in_show_keyword, '%'))
+        AND (in_theater_id = 0 OR p.theater_id = in_theater_id)
+        AND (in_date IS NULL OR p.performance_date = in_date)
+    ORDER BY p.performance_date DESC, p.start_time DESC;
 END$$
 
 CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_seats_with_status` (IN `in_performance_id` INT)   BEGIN
-    SELECT s.seat_id                    AS seat_id,
-           s.row_char                   AS row_char,
-           s.seat_number                AS seat_number,
-           s.real_seat_number           AS real_seat_number, -- [THÊM DÒNG NÀY]
+    SELECT s.seat_id, 
+           s.row_char, 
+           s.seat_number, 
+           s.real_seat_number, 
            IFNULL(sc.category_name, '') AS category_name,
-           IFNULL(sc.base_price, 0)     AS base_price,
-           (sp.status <> 'trống')       AS is_sold,
-           sc.color_class               AS color_class
+           IFNULL(sc.base_price, 0) AS base_price,
+           (sp.status <> 'trống') AS is_sold,
+           sc.color_class,
+           s.is_double  -- <--- QUAN TRỌNG: Phải thêm dòng này
     FROM seats s
     JOIN seat_performance sp ON sp.seat_id = s.seat_id
     LEFT JOIN seat_categories sc ON sc.category_id = s.category_id
@@ -429,23 +479,23 @@ CREATE TABLE `actors` (
   `phone` varchar(20) DEFAULT NULL,
   `status` enum('Hoạt động','Ngừng hoạt động') NOT NULL DEFAULT 'Hoạt động',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 --
 -- Dumping data for table `actors`
 --
 
 INSERT INTO `actors` (`actor_id`, `full_name`, `date_of_birth`, `gender`, `nick_name`, `email`, `phone`, `status`, `created_at`) VALUES
-(1, 'Thành Lộc', '1989-05-02', 'Nam', 'Phù thủy sân khấu', 'locthanh1203@gmail.com', '0775587366', 'Hoạt động', '2025-11-22 14:30:58'),
-(2, 'Hữu Châu', '1989-05-05', 'Nam', NULL, 'chauhuu@work.com', '0912319214', 'Hoạt động', '2025-11-22 14:30:58'),
+(1, 'Thành Lộc', '0000-00-00', 'Nam', 'Phù thủy sân khấu', 'locthanh1203@gmail.com', '0775587366', 'Hoạt động', '2025-11-22 14:30:58'),
+(2, 'Hữu Châu', '0000-00-00', 'Nam', NULL, 'chauhuu@work.com', '0912319214', 'Hoạt động', '2025-11-22 14:30:58'),
 (3, 'Hồng Vân', '1987-11-02', 'Nữ', 'NSND Hồng Vân', 'vanht@gmail.com', '0927341231', 'Hoạt động', '2025-11-22 14:30:58'),
 (4, 'Hoài Linh', '1987-02-04', 'Nam', 'Sáu Bảnh', NULL, '0924125387', 'Hoạt động', '2025-11-22 14:30:58'),
-(5, 'Trấn Thành', '1989-05-02', 'Nam', 'A Xìn', 'haitrieu@gmail.com', '0934571238', 'Hoạt động', '2025-11-22 14:30:58'),
-(6, 'Thu Trang', '1990-02-02', 'Nữ', 'Hoa hậu hài', NULL, '0124578126', 'Hoạt động', '2025-11-22 14:30:58'),
+(5, 'Trấn Thành', '0000-00-00', NULL, 'A Xìn', 'tranthanh.work@gmail.com', '0734125679', 'Hoạt động', '2025-11-22 14:30:58'),
+(6, 'Thu Trang', '0000-00-00', 'Nữ', 'Hoa hậu hài', NULL, '0124578126', 'Hoạt động', '2025-11-22 14:30:58'),
 (7, 'Tiến Luật', '1990-09-03', 'Nam', NULL, 'tienluat@gmail.com', '0234571936', 'Hoạt động', '2025-11-22 14:30:58'),
-(8, 'Diệu Nhi', '1998-03-01', 'Nữ', NULL, NULL, '0923187685', 'Hoạt động', '2025-11-22 14:30:58'),
-(9, 'Minh Dự', '1997-09-12', 'Nam', 'Thánh chửi', 'haitrieu@gmail.com', '0917235345', 'Hoạt động', '2025-11-22 14:30:58'),
-(10, 'Hải Triều', '1997-01-08', 'Nam', 'Lụa', 'haitrieu@gmail.com', '0917235624', 'Hoạt động', '2025-11-22 14:30:58');
+(8, 'Diệu Nhi', '0000-00-00', 'Nữ', NULL, 'dieunhi125@gmail.com', NULL, 'Hoạt động', '2025-11-22 14:30:58'),
+(9, 'Minh Dự', '1997-09-12', NULL, 'Thánh chửi', 'dumtn.work@gmail.com', '023198765', 'Hoạt động', '2025-11-22 14:30:58'),
+(10, 'Hải Triều', '1997-01-08', 'Nam', 'Lụa', NULL, '0987524671', 'Hoạt động', '2025-11-22 14:30:58');
 
 -- --------------------------------------------------------
 
@@ -1507,7 +1557,8 @@ INSERT INTO `performances` (`performance_id`, `show_id`, `theater_id`, `performa
 (74, 19, 7, '2025-12-15', '19:00:00', '20:45:00', 'Đang mở bán', 200000, '2025-12-08 09:44:40', '2025-12-08 09:44:40'),
 (75, 13, 1, '2025-12-30', '19:00:00', '20:35:00', 'Đang mở bán', 150000, '2025-12-08 09:44:56', '2025-12-08 09:44:56'),
 (76, 18, 1, '2025-12-15', '10:00:00', '11:40:00', 'Đang mở bán', 250000, '2025-12-08 09:45:25', '2025-12-08 09:45:25'),
-(77, 12, 2, '2025-12-30', '10:00:00', '11:44:00', 'Đang mở bán', 150000, '2025-12-08 09:45:46', '2025-12-08 09:45:46');
+(77, 12, 2, '2025-12-30', '10:00:00', '11:44:00', 'Đang mở bán', 150000, '2025-12-08 09:45:46', '2025-12-08 09:45:46'),
+(78, 16, 8, '2025-12-10', '19:00:00', '21:10:00', 'Đang mở bán', 100000, '2025-12-10 03:24:31', '2025-12-10 03:24:31');
 
 -- --------------------------------------------------------
 
@@ -1522,154 +1573,163 @@ CREATE TABLE `seats` (
   `row_char` varchar(5) NOT NULL,
   `seat_number` int(11) NOT NULL,
   `real_seat_number` int(11) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `is_double` tinyint(1) DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 --
 -- Dumping data for table `seats`
 --
 
-INSERT INTO `seats` (`seat_id`, `theater_id`, `category_id`, `row_char`, `seat_number`, `real_seat_number`, `created_at`) VALUES
-(1, 1, 1, 'A', 1, 1, '2025-09-24 16:19:02'),
-(2, 1, 1, 'A', 2, 2, '2025-09-24 16:19:02'),
-(3, 1, 1, 'A', 3, 3, '2025-09-24 16:19:02'),
-(4, 1, 1, 'A', 4, 4, '2025-09-24 16:19:02'),
-(5, 1, 1, 'A', 5, 5, '2025-09-24 16:19:02'),
-(6, 1, 1, 'A', 6, 6, '2025-09-24 16:19:02'),
-(7, 1, 1, 'A', 7, 7, '2025-09-24 16:19:02'),
-(8, 1, 1, 'A', 8, 8, '2025-09-24 16:19:02'),
-(9, 1, 1, 'A', 9, 9, '2025-09-24 16:19:02'),
-(10, 1, 1, 'A', 10, 10, '2025-09-24 16:19:02'),
-(11, 1, 1, 'B', 1, 1, '2025-09-24 16:19:02'),
-(12, 1, 1, 'B', 2, 2, '2025-09-24 16:19:02'),
-(13, 1, 1, 'B', 3, 3, '2025-09-24 16:19:02'),
-(14, 1, 1, 'B', 4, 4, '2025-09-24 16:19:02'),
-(15, 1, 1, 'B', 5, 5, '2025-09-24 16:19:02'),
-(16, 1, 1, 'B', 6, 6, '2025-09-24 16:19:02'),
-(17, 1, 1, 'B', 7, 7, '2025-09-24 16:19:02'),
-(18, 1, 1, 'B', 8, 8, '2025-09-24 16:19:02'),
-(19, 1, 1, 'B', 9, 9, '2025-09-24 16:19:02'),
-(20, 1, 1, 'B', 10, 10, '2025-09-24 16:19:02'),
-(21, 1, 2, 'C', 1, 1, '2025-09-24 16:19:02'),
-(22, 1, 2, 'C', 2, 2, '2025-09-24 16:19:02'),
-(23, 1, 2, 'C', 3, 3, '2025-09-24 16:19:02'),
-(24, 1, 2, 'C', 4, 4, '2025-09-24 16:19:02'),
-(25, 1, 2, 'C', 5, 5, '2025-09-24 16:19:02'),
-(26, 1, 2, 'C', 6, 6, '2025-09-24 16:19:02'),
-(27, 1, 2, 'C', 7, 7, '2025-09-24 16:19:02'),
-(28, 1, 2, 'C', 8, 8, '2025-09-24 16:19:02'),
-(29, 1, 2, 'C', 9, 9, '2025-09-24 16:19:02'),
-(30, 1, 2, 'C', 10, 10, '2025-09-24 16:19:02'),
-(31, 1, 3, 'D', 1, 1, '2025-09-24 16:19:02'),
-(32, 1, 3, 'D', 2, 2, '2025-09-24 16:19:02'),
-(33, 1, 3, 'D', 3, 3, '2025-09-24 16:19:02'),
-(34, 1, 3, 'D', 4, 4, '2025-09-24 16:19:02'),
-(35, 1, 3, 'D', 5, 5, '2025-09-24 16:19:02'),
-(36, 1, 3, 'D', 6, 6, '2025-09-24 16:19:02'),
-(37, 1, 3, 'E', 1, 1, '2025-09-24 16:19:02'),
-(38, 1, 3, 'E', 2, 2, '2025-09-24 16:19:02'),
-(39, 1, 3, 'E', 3, 3, '2025-09-24 16:19:02'),
-(40, 1, 3, 'E', 4, 4, '2025-09-24 16:19:02'),
-(41, 1, 3, 'E', 5, 5, '2025-09-24 16:19:02'),
-(42, 1, 3, 'E', 6, 6, '2025-09-24 16:19:02'),
-(43, 1, 3, 'F', 1, 1, '2025-09-24 16:19:02'),
-(44, 1, 3, 'F', 2, 2, '2025-09-24 16:19:02'),
-(45, 1, 3, 'F', 3, 3, '2025-09-24 16:19:02'),
-(46, 1, 3, 'F', 4, 4, '2025-09-24 16:19:02'),
-(47, 1, 3, 'F', 5, 5, '2025-09-24 16:19:02'),
-(48, 1, 3, 'F', 6, 6, '2025-09-24 16:19:02'),
-(49, 1, 3, 'F', 7, 7, '2025-09-24 16:19:02'),
-(50, 1, 3, 'F', 8, 8, '2025-09-24 16:19:02'),
-(51, 1, 3, 'F', 9, 9, '2025-09-24 16:19:02'),
-(52, 1, 3, 'F', 10, 10, '2025-09-24 16:19:02'),
-(53, 2, 1, 'A', 1, 1, '2025-09-24 16:19:02'),
-(54, 2, 1, 'A', 2, 2, '2025-09-24 16:19:02'),
-(55, 2, 1, 'A', 3, 3, '2025-09-24 16:19:02'),
-(56, 2, 1, 'A', 4, 4, '2025-09-24 16:19:02'),
-(57, 2, 1, 'A', 5, 5, '2025-09-24 16:19:02'),
-(58, 2, 1, 'A', 6, 6, '2025-09-24 16:19:02'),
-(59, 2, 1, 'B', 1, 1, '2025-09-24 16:19:02'),
-(60, 2, 1, 'B', 2, 2, '2025-09-24 16:19:02'),
-(61, 2, 1, 'B', 3, 3, '2025-09-24 16:19:02'),
-(62, 2, 1, 'B', 4, 4, '2025-09-24 16:19:02'),
-(63, 2, 1, 'B', 5, 5, '2025-09-24 16:19:02'),
-(64, 2, 1, 'B', 6, 6, '2025-09-24 16:19:02'),
-(65, 2, 2, 'C', 1, 1, '2025-09-24 16:19:02'),
-(66, 2, 2, 'C', 2, 2, '2025-09-24 16:19:02'),
-(67, 2, 2, 'C', 3, 3, '2025-09-24 16:19:02'),
-(68, 2, 2, 'C', 4, 4, '2025-09-24 16:19:02'),
-(69, 2, 2, 'C', 5, 5, '2025-09-24 16:19:02'),
-(70, 2, 2, 'C', 6, 6, '2025-09-24 16:19:02'),
-(71, 2, 1, 'D', 1, 1, '2025-09-24 16:19:02'),
-(72, 2, 1, 'D', 2, 2, '2025-09-24 16:19:02'),
-(73, 2, 1, 'D', 3, 3, '2025-09-24 16:19:02'),
-(74, 2, 1, 'D', 4, 4, '2025-09-24 16:19:02'),
-(75, 2, 1, 'D', 5, 5, '2025-09-24 16:19:02'),
-(76, 2, 1, 'D', 6, 6, '2025-09-24 16:19:02'),
-(77, 3, 1, 'A', 1, 1, '2025-09-24 16:19:02'),
-(78, 3, 1, 'A', 2, 2, '2025-09-24 16:19:02'),
-(79, 3, 1, 'A', 3, 3, '2025-09-24 16:19:02'),
-(80, 3, 1, 'A', 4, 4, '2025-09-24 16:19:02'),
-(81, 3, 1, 'A', 5, 5, '2025-09-24 16:19:02'),
-(82, 3, 1, 'A', 6, 6, '2025-09-24 16:19:02'),
-(83, 3, 1, 'B', 1, 1, '2025-09-24 16:19:02'),
-(84, 3, 1, 'B', 2, 2, '2025-09-24 16:19:02'),
-(85, 3, 1, 'B', 3, 3, '2025-09-24 16:19:02'),
-(86, 3, 1, 'B', 4, 4, '2025-09-24 16:19:02'),
-(87, 3, 1, 'B', 5, 5, '2025-09-24 16:19:02'),
-(88, 3, 1, 'B', 6, 6, '2025-09-24 16:19:02'),
-(89, 3, 2, 'C', 1, 1, '2025-09-24 16:19:02'),
-(90, 3, 2, 'C', 2, 2, '2025-09-24 16:19:02'),
-(91, 3, 2, 'C', 3, 3, '2025-09-24 16:19:02'),
-(92, 3, 2, 'C', 4, 4, '2025-09-24 16:19:02'),
-(93, 3, 2, 'C', 5, 5, '2025-09-24 16:19:02'),
-(94, 3, 2, 'C', 6, 6, '2025-09-24 16:19:02'),
-(95, 3, 3, 'D', 1, 1, '2025-09-24 16:19:02'),
-(96, 3, 3, 'D', 2, 2, '2025-09-24 16:19:02'),
-(97, 3, 3, 'D', 3, 3, '2025-09-24 16:19:02'),
-(98, 3, 3, 'D', 4, 4, '2025-09-24 16:19:02'),
-(99, 3, 3, 'D', 5, 5, '2025-09-24 16:19:02'),
-(100, 3, 3, 'D', 6, 6, '2025-09-24 16:19:02'),
-(101, 3, 3, 'E', 1, 1, '2025-09-24 16:19:02'),
-(102, 3, 3, 'E', 2, 2, '2025-09-24 16:19:02'),
-(103, 3, 3, 'E', 3, 3, '2025-09-24 16:19:02'),
-(104, 3, 3, 'E', 4, 4, '2025-09-24 16:19:02'),
-(105, 3, 3, 'E', 5, 5, '2025-09-24 16:19:02'),
-(106, 3, 3, 'E', 6, 6, '2025-09-24 16:19:02'),
-(107, 2, 1, 'A', 7, 7, '2025-11-17 18:55:09'),
-(108, 2, 1, 'B', 7, 7, '2025-11-17 18:55:09'),
-(109, 2, 2, 'C', 7, 7, '2025-11-17 18:55:09'),
-(110, 2, 1, 'D', 7, 7, '2025-11-17 18:55:09'),
-(111, 2, 1, 'A', 8, 8, '2025-11-17 18:58:14'),
-(112, 2, 1, 'B', 8, 8, '2025-11-17 18:58:14'),
-(113, 2, 2, 'C', 8, 8, '2025-11-17 18:58:14'),
-(114, 2, 1, 'D', 8, 8, '2025-11-17 18:58:14'),
-(144, 7, 1, 'A', 1, 1, '2025-12-08 09:26:39'),
-(145, 7, 1, 'A', 2, 2, '2025-12-08 09:26:40'),
-(146, 7, 1, 'A', 4, 3, '2025-12-08 09:26:40'),
-(147, 7, 1, 'A', 5, 4, '2025-12-08 09:26:40'),
-(148, 7, 1, 'B', 1, 1, '2025-12-08 09:26:40'),
-(149, 7, 1, 'B', 2, 2, '2025-12-08 09:26:40'),
-(150, 7, 1, 'B', 4, 3, '2025-12-08 09:26:40'),
-(151, 7, 1, 'B', 5, 4, '2025-12-08 09:26:40'),
-(152, 7, 12, 'C', 1, 1, '2025-12-08 09:26:40'),
-(153, 7, 12, 'C', 2, 2, '2025-12-08 09:26:40'),
-(154, 7, 12, 'C', 4, 3, '2025-12-08 09:26:40'),
-(155, 7, 12, 'C', 5, 4, '2025-12-08 09:26:40'),
-(156, 7, 12, 'D', 1, 1, '2025-12-08 09:26:40'),
-(157, 7, 12, 'D', 2, 2, '2025-12-08 09:26:40'),
-(158, 7, 12, 'D', 4, 3, '2025-12-08 09:26:40'),
-(159, 7, 12, 'D', 5, 4, '2025-12-08 09:26:40'),
-(160, 7, 3, 'E', 1, 1, '2025-12-08 09:26:40'),
-(161, 7, 3, 'E', 2, 2, '2025-12-08 09:26:40'),
-(162, 7, 3, 'E', 3, 3, '2025-12-08 09:26:40'),
-(163, 7, 3, 'E', 4, 4, '2025-12-08 09:26:40'),
-(164, 7, 3, 'E', 5, 5, '2025-12-08 09:26:40'),
-(165, 7, 3, 'F', 1, 1, '2025-12-08 09:26:40'),
-(166, 7, 3, 'F', 2, 2, '2025-12-08 09:26:40'),
-(167, 7, 3, 'F', 3, 3, '2025-12-08 09:26:40'),
-(168, 7, 3, 'F', 4, 4, '2025-12-08 09:26:40'),
-(169, 7, 3, 'F', 5, 5, '2025-12-08 09:26:40');
+INSERT INTO `seats` (`seat_id`, `theater_id`, `category_id`, `row_char`, `seat_number`, `real_seat_number`, `created_at`, `is_double`) VALUES
+(1, 1, 1, 'A', 1, 1, '2025-09-24 16:19:02', 0),
+(2, 1, 1, 'A', 2, 2, '2025-09-24 16:19:02', 0),
+(3, 1, 1, 'A', 3, 3, '2025-09-24 16:19:02', 0),
+(4, 1, 1, 'A', 4, 4, '2025-09-24 16:19:02', 0),
+(5, 1, 1, 'A', 5, 5, '2025-09-24 16:19:02', 0),
+(6, 1, 1, 'A', 6, 6, '2025-09-24 16:19:02', 0),
+(7, 1, 1, 'A', 7, 7, '2025-09-24 16:19:02', 0),
+(8, 1, 1, 'A', 8, 8, '2025-09-24 16:19:02', 0),
+(9, 1, 1, 'A', 9, 9, '2025-09-24 16:19:02', 0),
+(10, 1, 1, 'A', 10, 10, '2025-09-24 16:19:02', 0),
+(11, 1, 1, 'B', 1, 1, '2025-09-24 16:19:02', 0),
+(12, 1, 1, 'B', 2, 2, '2025-09-24 16:19:02', 0),
+(13, 1, 1, 'B', 3, 3, '2025-09-24 16:19:02', 0),
+(14, 1, 1, 'B', 4, 4, '2025-09-24 16:19:02', 0),
+(15, 1, 1, 'B', 5, 5, '2025-09-24 16:19:02', 0),
+(16, 1, 1, 'B', 6, 6, '2025-09-24 16:19:02', 0),
+(17, 1, 1, 'B', 7, 7, '2025-09-24 16:19:02', 0),
+(18, 1, 1, 'B', 8, 8, '2025-09-24 16:19:02', 0),
+(19, 1, 1, 'B', 9, 9, '2025-09-24 16:19:02', 0),
+(20, 1, 1, 'B', 10, 10, '2025-09-24 16:19:02', 0),
+(21, 1, 2, 'C', 1, 1, '2025-09-24 16:19:02', 0),
+(22, 1, 2, 'C', 2, 2, '2025-09-24 16:19:02', 0),
+(23, 1, 2, 'C', 3, 3, '2025-09-24 16:19:02', 0),
+(24, 1, 2, 'C', 4, 4, '2025-09-24 16:19:02', 0),
+(25, 1, 2, 'C', 5, 5, '2025-09-24 16:19:02', 0),
+(26, 1, 2, 'C', 6, 6, '2025-09-24 16:19:02', 0),
+(27, 1, 2, 'C', 7, 7, '2025-09-24 16:19:02', 0),
+(28, 1, 2, 'C', 8, 8, '2025-09-24 16:19:02', 0),
+(29, 1, 2, 'C', 9, 9, '2025-09-24 16:19:02', 0),
+(30, 1, 2, 'C', 10, 10, '2025-09-24 16:19:02', 0),
+(31, 1, 3, 'D', 1, 1, '2025-09-24 16:19:02', 0),
+(32, 1, 3, 'D', 2, 2, '2025-09-24 16:19:02', 0),
+(33, 1, 3, 'D', 3, 3, '2025-09-24 16:19:02', 0),
+(34, 1, 3, 'D', 4, 4, '2025-09-24 16:19:02', 0),
+(35, 1, 3, 'D', 5, 5, '2025-09-24 16:19:02', 0),
+(36, 1, 3, 'D', 6, 6, '2025-09-24 16:19:02', 0),
+(37, 1, 3, 'E', 1, 1, '2025-09-24 16:19:02', 0),
+(38, 1, 3, 'E', 2, 2, '2025-09-24 16:19:02', 0),
+(39, 1, 3, 'E', 3, 3, '2025-09-24 16:19:02', 0),
+(40, 1, 3, 'E', 4, 4, '2025-09-24 16:19:02', 0),
+(41, 1, 3, 'E', 5, 5, '2025-09-24 16:19:02', 0),
+(42, 1, 3, 'E', 6, 6, '2025-09-24 16:19:02', 0),
+(43, 1, 3, 'F', 1, 1, '2025-09-24 16:19:02', 0),
+(44, 1, 3, 'F', 2, 2, '2025-09-24 16:19:02', 0),
+(45, 1, 3, 'F', 3, 3, '2025-09-24 16:19:02', 0),
+(46, 1, 3, 'F', 4, 4, '2025-09-24 16:19:02', 0),
+(47, 1, 3, 'F', 5, 5, '2025-09-24 16:19:02', 0),
+(48, 1, 3, 'F', 6, 6, '2025-09-24 16:19:02', 0),
+(49, 1, 3, 'F', 7, 7, '2025-09-24 16:19:02', 0),
+(50, 1, 3, 'F', 8, 8, '2025-09-24 16:19:02', 0),
+(51, 1, 3, 'F', 9, 9, '2025-09-24 16:19:02', 0),
+(52, 1, 3, 'F', 10, 10, '2025-09-24 16:19:02', 0),
+(53, 2, 1, 'A', 1, 1, '2025-09-24 16:19:02', 0),
+(54, 2, 1, 'A', 2, 2, '2025-09-24 16:19:02', 0),
+(55, 2, 1, 'A', 3, 3, '2025-09-24 16:19:02', 0),
+(56, 2, 1, 'A', 4, 4, '2025-09-24 16:19:02', 0),
+(57, 2, 1, 'A', 5, 5, '2025-09-24 16:19:02', 0),
+(58, 2, 1, 'A', 6, 6, '2025-09-24 16:19:02', 0),
+(59, 2, 1, 'B', 1, 1, '2025-09-24 16:19:02', 0),
+(60, 2, 1, 'B', 2, 2, '2025-09-24 16:19:02', 0),
+(61, 2, 1, 'B', 3, 3, '2025-09-24 16:19:02', 0),
+(62, 2, 1, 'B', 4, 4, '2025-09-24 16:19:02', 0),
+(63, 2, 1, 'B', 5, 5, '2025-09-24 16:19:02', 0),
+(64, 2, 1, 'B', 6, 6, '2025-09-24 16:19:02', 0),
+(65, 2, 2, 'C', 1, 1, '2025-09-24 16:19:02', 0),
+(66, 2, 2, 'C', 2, 2, '2025-09-24 16:19:02', 0),
+(67, 2, 2, 'C', 3, 3, '2025-09-24 16:19:02', 0),
+(68, 2, 2, 'C', 4, 4, '2025-09-24 16:19:02', 0),
+(69, 2, 2, 'C', 5, 5, '2025-09-24 16:19:02', 0),
+(70, 2, 2, 'C', 6, 6, '2025-09-24 16:19:02', 0),
+(71, 2, 1, 'D', 1, 1, '2025-09-24 16:19:02', 0),
+(72, 2, 1, 'D', 2, 2, '2025-09-24 16:19:02', 0),
+(73, 2, 1, 'D', 3, 3, '2025-09-24 16:19:02', 0),
+(74, 2, 1, 'D', 4, 4, '2025-09-24 16:19:02', 0),
+(75, 2, 1, 'D', 5, 5, '2025-09-24 16:19:02', 0),
+(76, 2, 1, 'D', 6, 6, '2025-09-24 16:19:02', 0),
+(77, 3, 1, 'A', 1, 1, '2025-09-24 16:19:02', 0),
+(78, 3, 1, 'A', 2, 2, '2025-09-24 16:19:02', 0),
+(79, 3, 1, 'A', 3, 3, '2025-09-24 16:19:02', 0),
+(80, 3, 1, 'A', 4, 4, '2025-09-24 16:19:02', 0),
+(81, 3, 1, 'A', 5, 5, '2025-09-24 16:19:02', 0),
+(82, 3, 1, 'A', 6, 6, '2025-09-24 16:19:02', 0),
+(83, 3, 1, 'B', 1, 1, '2025-09-24 16:19:02', 0),
+(84, 3, 1, 'B', 2, 2, '2025-09-24 16:19:02', 0),
+(85, 3, 1, 'B', 3, 3, '2025-09-24 16:19:02', 0),
+(86, 3, 1, 'B', 4, 4, '2025-09-24 16:19:02', 0),
+(87, 3, 1, 'B', 5, 5, '2025-09-24 16:19:02', 0),
+(88, 3, 1, 'B', 6, 6, '2025-09-24 16:19:02', 0),
+(89, 3, 2, 'C', 1, 1, '2025-09-24 16:19:02', 0),
+(90, 3, 2, 'C', 2, 2, '2025-09-24 16:19:02', 0),
+(91, 3, 2, 'C', 3, 3, '2025-09-24 16:19:02', 0),
+(92, 3, 2, 'C', 4, 4, '2025-09-24 16:19:02', 0),
+(93, 3, 2, 'C', 5, 5, '2025-09-24 16:19:02', 0),
+(94, 3, 2, 'C', 6, 6, '2025-09-24 16:19:02', 0),
+(95, 3, 3, 'D', 1, 1, '2025-09-24 16:19:02', 0),
+(96, 3, 3, 'D', 2, 2, '2025-09-24 16:19:02', 0),
+(97, 3, 3, 'D', 3, 3, '2025-09-24 16:19:02', 0),
+(98, 3, 3, 'D', 4, 4, '2025-09-24 16:19:02', 0),
+(99, 3, 3, 'D', 5, 5, '2025-09-24 16:19:02', 0),
+(100, 3, 3, 'D', 6, 6, '2025-09-24 16:19:02', 0),
+(101, 3, 3, 'E', 1, 1, '2025-09-24 16:19:02', 0),
+(102, 3, 3, 'E', 2, 2, '2025-09-24 16:19:02', 0),
+(103, 3, 3, 'E', 3, 3, '2025-09-24 16:19:02', 0),
+(104, 3, 3, 'E', 4, 4, '2025-09-24 16:19:02', 0),
+(105, 3, 3, 'E', 5, 5, '2025-09-24 16:19:02', 0),
+(106, 3, 3, 'E', 6, 6, '2025-09-24 16:19:02', 0),
+(107, 2, 1, 'A', 7, 7, '2025-11-17 18:55:09', 0),
+(108, 2, 1, 'B', 7, 7, '2025-11-17 18:55:09', 0),
+(109, 2, 2, 'C', 7, 7, '2025-11-17 18:55:09', 0),
+(110, 2, 1, 'D', 7, 7, '2025-11-17 18:55:09', 0),
+(111, 2, 1, 'A', 8, 8, '2025-11-17 18:58:14', 0),
+(112, 2, 1, 'B', 8, 8, '2025-11-17 18:58:14', 0),
+(113, 2, 2, 'C', 8, 8, '2025-11-17 18:58:14', 0),
+(114, 2, 1, 'D', 8, 8, '2025-11-17 18:58:14', 0),
+(144, 7, 1, 'A', 1, 1, '2025-12-08 09:26:39', 0),
+(145, 7, 1, 'A', 2, 2, '2025-12-08 09:26:40', 0),
+(146, 7, 1, 'A', 4, 3, '2025-12-08 09:26:40', 0),
+(147, 7, 1, 'A', 5, 4, '2025-12-08 09:26:40', 0),
+(148, 7, 1, 'B', 1, 1, '2025-12-08 09:26:40', 0),
+(149, 7, 1, 'B', 2, 2, '2025-12-08 09:26:40', 0),
+(150, 7, 1, 'B', 4, 3, '2025-12-08 09:26:40', 0),
+(151, 7, 1, 'B', 5, 4, '2025-12-08 09:26:40', 0),
+(152, 7, 12, 'C', 1, 1, '2025-12-08 09:26:40', 0),
+(153, 7, 12, 'C', 2, 2, '2025-12-08 09:26:40', 0),
+(154, 7, 12, 'C', 4, 3, '2025-12-08 09:26:40', 0),
+(155, 7, 12, 'C', 5, 4, '2025-12-08 09:26:40', 0),
+(156, 7, 12, 'D', 1, 1, '2025-12-08 09:26:40', 0),
+(157, 7, 12, 'D', 2, 2, '2025-12-08 09:26:40', 0),
+(158, 7, 12, 'D', 4, 3, '2025-12-08 09:26:40', 0),
+(159, 7, 12, 'D', 5, 4, '2025-12-08 09:26:40', 0),
+(160, 7, 3, 'E', 1, 1, '2025-12-08 09:26:40', 0),
+(161, 7, 3, 'E', 2, 2, '2025-12-08 09:26:40', 0),
+(162, 7, 3, 'E', 3, 3, '2025-12-08 09:26:40', 0),
+(163, 7, 3, 'E', 4, 4, '2025-12-08 09:26:40', 0),
+(164, 7, 3, 'E', 5, 5, '2025-12-08 09:26:40', 0),
+(165, 7, 3, 'F', 1, 1, '2025-12-08 09:26:40', 0),
+(166, 7, 3, 'F', 2, 2, '2025-12-08 09:26:40', 0),
+(167, 7, 3, 'F', 3, 3, '2025-12-08 09:26:40', 0),
+(168, 7, 3, 'F', 4, 4, '2025-12-08 09:26:40', 0),
+(169, 7, 3, 'F', 5, 5, '2025-12-08 09:26:40', 0),
+(170, 8, 2, 'A', 1, 1, '2025-12-10 03:23:28', 0),
+(171, 8, 2, 'A', 2, 2, '2025-12-10 03:23:28', 0),
+(172, 8, 2, 'A', 3, 3, '2025-12-10 03:23:28', 0),
+(173, 8, 2, 'B', 1, 1, '2025-12-10 03:23:28', 0),
+(174, 8, 2, 'B', 2, 2, '2025-12-10 03:23:28', 0),
+(175, 8, 2, 'B', 3, 3, '2025-12-10 03:23:28', 0),
+(176, 8, 2, 'C', 1, 1, '2025-12-10 03:23:28', 1),
+(177, 8, 2, 'C', 2, 2, '2025-12-10 03:23:28', 0);
 
 -- --------------------------------------------------------
 
@@ -4850,7 +4910,15 @@ INSERT INTO `seat_performance` (`seat_id`, `performance_id`, `status`) VALUES
 (111, 77, 'trống'),
 (112, 77, 'trống'),
 (113, 77, 'trống'),
-(114, 77, 'trống');
+(114, 77, 'trống'),
+(170, 78, 'trống'),
+(171, 78, 'trống'),
+(172, 78, 'trống'),
+(173, 78, 'trống'),
+(174, 78, 'trống'),
+(175, 78, 'trống'),
+(176, 78, 'trống'),
+(177, 78, 'trống');
 
 -- --------------------------------------------------------
 
@@ -4868,7 +4936,7 @@ CREATE TABLE `shows` (
   `status` enum('Sắp chiếu','Đang chiếu','Đã kết thúc') NOT NULL DEFAULT 'Sắp chiếu',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 --
 -- Dumping data for table `shows`
@@ -4883,7 +4951,7 @@ INSERT INTO `shows` (`show_id`, `title`, `description`, `duration_minutes`, `dir
 (13, 'Tấm Cám Đại Chiến', 'Phiên bản hiện đại, vui nhộn và đầy sáng tạo của truyện cổ tích “Tấm Cám”. Với yếu tố gây cười, châm biếm và bất ngờ, vở diễn mang đến những phút giây giải trí thú vị cho cả gia đình.', 95, 'Hoàng Anh Tú', 'assets/images/tam-cam-poster.jpg', 'Đang chiếu', '2025-08-01 00:00:00', '2025-11-29 19:56:21'),
 (14, 'Má ơi út dìa', 'Câu chuyện cảm động về tình mẫu tử và nỗi day dứt của người con xa quê. Những ký ức, những tiếng gọi “Má ơi” trở thành sợi dây kết nối quá khứ và hiện tại.', 110, 'Nguyễn Thị Thanh Hương', 'assets/images/ma-oi-ut-dia-poster.png', 'Đã kết thúc', '2025-11-04 12:37:19', '2025-11-30 14:34:45'),
 (15, 'Tía ơi má dìa', 'Một vở kịch hài – tình cảm về những hiểu lầm, giận hờn và yêu thương trong một gia đình miền Tây. Tiếng cười và nước mắt đan xen tạo nên cảm xúc sâu lắng.', 100, 'Trần Hoài Phong', 'assets/images/tia-oi-ma-dia-poster.jpg', 'Đã kết thúc', '2025-11-04 12:40:24', '2025-11-24 07:07:01'),
-(16, 'Đức Thượng Công Tả Quân Lê Văn Duyệt', 'Tái hiện hình tượng vị danh tướng Lê Văn Duyệt – người để lại dấu ấn sâu đậm trong lịch sử và lòng dân Nam Bộ. Một vở diễn lịch sử trang trọng, đầy khí phách.', 130, 'Phạm Hữu Tấn', 'assets/images/duc-thuong-cong-ta-quan-le-van-duyet-poster.jpg', 'Đã kết thúc', '2025-11-04 12:42:26', '2025-11-24 07:07:01'),
+(16, 'Đức Thượng Công Tả Quân Lê Văn Duyệt', 'Tái hiện hình tượng vị danh tướng Lê Văn Duyệt – người để lại dấu ấn sâu đậm trong lịch sử và lòng dân Nam Bộ. Một vở diễn lịch sử trang trọng, đầy khí phách.', 130, 'Phạm Hữu Tấn', 'assets/images/duc-thuong-cong-ta-quan-le-van-duyet-poster.jpg', 'Đang chiếu', '2025-11-04 12:42:26', '2025-12-10 03:24:32'),
 (17, 'Chuyến Đò Định Mệnh', 'Một câu chuyện đầy kịch tính xoay quanh chuyến đò cuối cùng của đời người lái đò, nơi tình yêu, tội lỗi và sự tha thứ gặp nhau trong một đêm giông bão.', 115, 'Vũ Ngọc Dũng', 'assets/images/chuyen-do-dinh-menh-poster.jpg', 'Đã kết thúc', '2025-11-04 12:43:35', '2025-12-07 11:30:19'),
 (18, 'Một Ngày Làm Vua', 'Vở hài kịch xã hội châm biếm về một người bình thường bỗng được trao quyền lực. Từ đó, những tình huống oái oăm, dở khóc dở cười liên tục xảy ra.', 100, 'Nguyễn Hoàng Anh', 'assets/images/mot-ngay-lam-vua-poster.jpg', 'Đang chiếu', '2025-11-04 12:44:58', '2025-12-08 09:45:26'),
 (19, 'Xóm Vịt Trời', 'Một góc nhìn nhân văn và hài hước về cuộc sống mưu sinh của những người lao động nghèo trong một xóm nhỏ ven sông. Dù khốn khó, họ vẫn giữ niềm tin và tình người.', 105, 'Lê Thị Phương Loan', 'assets/images/xom-vit-troi-poster.jpg', 'Đang chiếu', '2025-11-04 12:46:05', '2025-12-08 09:44:41'),
@@ -5022,7 +5090,8 @@ INSERT INTO `theaters` (`theater_id`, `name`, `total_seats`, `created_at`, `stat
 (1, 'Main Hall', 52, '2025-10-03 16:14:11', 'Đã hoạt động'),
 (2, 'Black Box', 32, '2025-10-03 16:14:22', 'Đã hoạt động'),
 (3, 'Studio', 30, '2025-10-03 16:14:32', 'Đã hoạt động'),
-(7, 'Big Boom', 26, '2025-12-08 09:26:39', 'Đã hoạt động');
+(7, 'Big Boom', 26, '2025-12-08 09:26:39', 'Đã hoạt động'),
+(8, 'Couple', 8, '2025-12-10 03:23:28', 'Đã hoạt động');
 
 -- --------------------------------------------------------
 
@@ -6356,13 +6425,13 @@ ALTER TABLE `payments`
 -- AUTO_INCREMENT for table `performances`
 --
 ALTER TABLE `performances`
-  MODIFY `performance_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=78;
+  MODIFY `performance_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=79;
 
 --
 -- AUTO_INCREMENT for table `seats`
 --
 ALTER TABLE `seats`
-  MODIFY `seat_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=170;
+  MODIFY `seat_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=178;
 
 --
 -- AUTO_INCREMENT for table `seat_categories`
@@ -6380,7 +6449,7 @@ ALTER TABLE `shows`
 -- AUTO_INCREMENT for table `theaters`
 --
 ALTER TABLE `theaters`
-  MODIFY `theater_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `theater_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `tickets`
